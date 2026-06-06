@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: shinapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  auth-service:
+    build: 
+      context: .
+      args:
+        APP: auth
+    environment:
+      - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
+      - JWT_SECRET=super_secret_key
+    depends_on:
+      - postgres
+
+  api-gateway:
+    build: 
+      context: .
+      args:
+        APP: api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_HOST=auth-service
+      - JWT_SECRET=super_secret_key
+    depends_on:
+      - auth-service
+
+volumes:
+  postgres_data:

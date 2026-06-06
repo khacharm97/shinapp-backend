@@ -1,0 +1,26 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+  MASTER
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?
+  email     String?  @unique
+  phone     String?  @unique
+  password  String
+  roles     Role[]   @default([USER])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([email, phone]) // Allows efficient querying for either
+}
