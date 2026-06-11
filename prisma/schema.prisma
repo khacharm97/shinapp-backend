@@ -22,5 +22,30 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  userInfo UserInfo?
+
   @@unique([email, phone]) // Allows efficient querying for either
+}
+
+model UserInfo {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  regionId String?
+  cityId   String?
+  skills   String[] @default([])
+
+  largeScale   Boolean @default(false)
+  urgentOrders Boolean @default(false)
+  onlinePay    Boolean @default(false)
+  buyMaterial  Boolean @default(false)
+  nightShift   Boolean @default(false)
+
+  pricingFormat String?
+  priceValue    String?
+  about         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

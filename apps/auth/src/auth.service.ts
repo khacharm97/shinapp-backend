@@ -27,8 +27,8 @@ export class AuthService {
 
     const user = await this.usersService.create({
       name: data.name,
-      email: isEmail ? identifier : null,
-      phone: !isEmail ? identifier : null,
+      email: data.email || null,
+      phone: data.phone || null,
       password: hashedPassword,
       roles: mappedRoles as any, // Cast to any to avoid strict Prisma enum typing issues
     });
@@ -51,6 +51,26 @@ export class AuthService {
     const payload = { sub: user.id, roles: user.roles };
     return {
       access_token: this.jwtService.sign(payload),
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        roles: user.roles,
+        userInfo: user.userInfo || null
+      }
     };
+  }
+
+  async getProfile(userId: string) {
+    return this.usersService.getUserProfile(userId);
+  }
+
+  async getMasters(page: number, limit: number) {
+    return this.usersService.findMasters(page, limit);
+  }
+
+  async updateProfile(userId: string, data: any) {
+    return this.usersService.upsertUserInfo(userId, data);
   }
 }
