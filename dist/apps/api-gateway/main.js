@@ -103,6 +103,15 @@ let ApiGatewayController = class ApiGatewayController {
         console.log('Microservice login returned:', result);
         return result;
     }
+    async getMasters(page = '1', limit = '10') {
+        const pageNum = parseInt(page, 10) || 1;
+        const limitNum = parseInt(limit, 10) || 10;
+        return (0, rxjs_1.firstValueFrom)(this.authService.send({ cmd: 'get-masters' }, { page: pageNum, limit: limitNum }));
+    }
+    async testProfile(id) {
+        const result = await (0, rxjs_1.firstValueFrom)(this.authService.send({ cmd: 'get-profile' }, { userId: id }));
+        return result;
+    }
     async getProfile(req) {
         console.log('API Gateway getProfile called with req.user:', req.user);
         const result = await (0, rxjs_1.firstValueFrom)(this.authService.send({ cmd: 'get-profile' }, { userId: req.user.id }));
@@ -131,6 +140,21 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], ApiGatewayController.prototype, "login", null);
+__decorate([
+    (0, common_1.Get)('masters'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ApiGatewayController.prototype, "getMasters", null);
+__decorate([
+    (0, common_1.Get)('test-profile/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ApiGatewayController.prototype, "testProfile", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Get)('profile'),
