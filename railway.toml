@@ -1,0 +1,22 @@
+[deploy]
+watchPatterns = [
+    "apps/**",          # any change inside apps/ triggers deploy
+    "libs/**",          # same for libs/
+    "package.json",     # dependency changes
+    "package-lock.json",
+    "prisma/**",        # schema changes need a rebuild
+    "Dockerfile",       # Dockerfile changes
+    ".dockerignore",
+    "nest-cli.json",    # NestJS config
+    "tsconfig*.json"
+]
+
+# Optional: explicitly ignore certain paths
+ignorePatterns = [
+    "README.md",
+    ".gitignore",
+    ".env.example",
+    "*.log",
+    ".vscode/**",
+    "docs/**"
+]
