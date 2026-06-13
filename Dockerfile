@@ -2,12 +2,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+ARG DATABASE_URL
+
 COPY package*.json ./
 COPY prisma ./prisma/
 
 RUN npm install
 RUN npx prisma generate
-RUN npx prisma db push
+RUN DATABASE_URL=${DATABASE_URL} npx prisma db push
 
 COPY . .
 
