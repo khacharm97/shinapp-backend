@@ -5,6 +5,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { GoogleStrategy } from './common/strategies/google.strategy';
 
 @Module({
   imports: [
@@ -17,6 +18,14 @@ import { JwtStrategy } from './jwt.strategy';
           port: 3001,
         },
       },
+      {
+        name: 'MASTERS_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.MASTERS_HOST || 'localhost',
+          port: 3002,
+        },
+      },
     ]),
     PassportModule,
     JwtModule.register({
@@ -25,6 +34,6 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [ApiGatewayController],
-  providers: [ApiGatewayService, JwtStrategy],
+  providers: [ApiGatewayService, JwtStrategy, GoogleStrategy],
 })
 export class ApiGatewayModule {}

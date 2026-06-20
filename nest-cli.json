@@ -27,6 +27,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/auth/tsconfig.app.json"
       }
+    },
+    "masters": {
+      "type": "application",
+      "root": "apps/masters",
+      "entryFile": "main",
+      "sourceRoot": "apps/masters/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/masters/tsconfig.app.json"
+      }
     }
   }
 }

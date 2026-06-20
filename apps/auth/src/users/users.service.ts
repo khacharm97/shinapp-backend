@@ -15,6 +15,21 @@ export class UsersService {
     });
   }
 
+  async findByGoogleId(googleId: string) {
+    return this.prisma.user.findUnique({
+      where: { googleId },
+      include: { userInfo: true },
+    });
+  }
+
+  async update(id: string, data: Prisma.UserUpdateInput) {
+    return this.prisma.user.update({
+      where: { id },
+      data,
+      include: { userInfo: true },
+    });
+  }
+
   async create(data: Prisma.UserCreateInput) {
     return this.prisma.user.create({ 
       data,
@@ -32,6 +47,8 @@ export class UsersService {
         email: true,
         phone: true,
         roles: true,
+        avatarUrl: true,
+        verifiedAt: true,
         userInfo: true,
       },
     });
@@ -39,36 +56,7 @@ export class UsersService {
     return user;
   }
 
-  async findMasters(page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
-    const [items, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where: {
-          roles: {
-            has: 'MASTER',
-          },
-        },
-        include: { userInfo: true },
-        skip,
-        take: limit,
-      }),
-      this.prisma.user.count({
-        where: {
-          roles: {
-            has: 'MASTER',
-          },
-        },
-      }),
-    ]);
 
-    return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
 
   async upsertUserInfo(userId: string, data: any) {
     const { name, phone, email, ...userInfoData } = data;
@@ -78,15 +66,15 @@ export class UsersService {
       await this.prisma.user.update({
         where: { id: userId },
         data: {
-          ...(name !== undefined && { name }),
-          ...(phone !== undefined && { phone }),
-          ...(email !== undefined && { email }),
+          ...(name !== undefined && { name: name || null }),
+          ...(phone !== undefined && { phone: phone || null }),
+          ...(email !== undefined && { email: email || null }),
         },
       });
     }
 
     // Upsert UserInfo fields
-    return this.prisma.userInfo.upsert({
+    await this.prisma.userInfo.upsert({
       where: { userId },
       update: userInfoData,
       create: {
@@ -94,5 +82,50 @@ export class UsersService {
         userId,
       },
     });
+
+    await this.checkVerificationStatus(userId);
+    return this.getUserProfile(userId);
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+    });
+    
+    await this.checkVerificationStatus(userId);
+    return this.getUserProfile(userId);
+  }
+
+  async checkVerificationStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { userInfo: true },
+    });
+
+    if (!user) return;
+
+    const isVerified = 
+      !!user.avatarUrl &&
+      !!user.phone &&
+      !!user.email &&
+      !!user.userInfo?.regionId &&
+      !!user.userInfo?.cityId &&
+      !!user.userInfo?.about &&
+      (user.userInfo?.skills?.length || 0) >= 1;
+
+    const currentlyVerified = user.verifiedAt !== null;
+    
+    if (isVerified && !currentlyVerified) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verifiedAt: new Date() },
+      });
+    } else if (!isVerified && currentlyVerified) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { verifiedAt: null },
+      });
+    }
   }
 }

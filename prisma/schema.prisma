@@ -17,10 +17,13 @@ model User {
   name      String?
   email     String?  @unique
   phone     String?  @unique
-  password  String
+  googleId  String?  @unique
+  password  String?
   roles     Role[]   @default([USER])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  avatarUrl  String?
+  verifiedAt DateTime?
 
   userInfo UserInfo?
 

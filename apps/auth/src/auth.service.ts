@@ -40,7 +40,7 @@ export class AuthService {
     let user = userOrCredentials;
     if (userOrCredentials.identifier && userOrCredentials.password) {
       const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
-      if (!dbUser) throw new UnauthorizedException('Invalid credentials');
+      if (!dbUser || !dbUser.password) throw new UnauthorizedException('Invalid credentials');
 
       const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
       if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
@@ -62,15 +62,51 @@ export class AuthService {
     };
   }
 
+  async googleLogin(profile: any) {
+    if (!profile) {
+      throw new UnauthorizedException('No user from google');
+    }
+
+    let user = await this.usersService.findByGoogleId(profile.googleId);
+
+    if (!user && profile.email) {
+      user = await this.usersService.findByIdentifier(profile.email);
+      if (user) {
+        // Link existing account with Google ID
+        user = await this.usersService.update(user.id, { googleId: profile.googleId });
+      }
+    }
+
+    const mappedRoles = profile.role === 'master' ? ['MASTER'] : ['USER'];
+
+    if (!user) {
+      // Create new user if not found
+      user = await this.usersService.create({
+        googleId: profile.googleId,
+        email: profile.email,
+        name: profile.firstName ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Google User',
+        roles: mappedRoles as any,
+        // password is now optional in schema, so we can omit it
+      });
+    } else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
+      // Add MASTER role if they specifically signed up as master this time via google
+      user = await this.usersService.update(user.id, {
+        roles: [...user.roles, 'MASTER'] as any
+      });
+    }
+
+    return this.login(user);
+  }
+
   async getProfile(userId: string) {
     return this.usersService.getUserProfile(userId);
   }
 
-  async getMasters(page: number, limit: number) {
-    return this.usersService.findMasters(page, limit);
-  }
-
   async updateProfile(userId: string, data: any) {
     return this.usersService.upsertUserInfo(userId, data);
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string) {
+    return this.usersService.updateAvatar(userId, avatarUrl);
   }
 }

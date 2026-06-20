@@ -23,6 +23,16 @@ services:
     depends_on:
       - postgres
 
+  masters-service:
+    build: 
+      context: .
+      args:
+        APP: masters
+    environment:
+      - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
+    depends_on:
+      - postgres
+
   api-gateway:
     build: 
       context: .
@@ -32,9 +42,17 @@ services:
       - "3000:3000"
     environment:
       - AUTH_HOST=auth-service
+      - MASTERS_HOST=masters-service
       - JWT_SECRET=super_secret_key
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-507203893182-la9lrf9mdka443bafkov7gvgvbaqhpag.apps.googleusercontent.com}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
     depends_on:
       - auth-service
+      - masters-service
+    volumes:
+      - uploads_data:/app/uploads
 
 volumes:
   postgres_data:
+  uploads_data:
