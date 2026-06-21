@@ -40,8 +40,8 @@ export class ApiGatewayController {
     const result = await firstValueFrom(this.authService.send({ cmd: 'google-login' }, googleUser));
     
     // Redirect back to frontend with the token
-    const frontendUrl = 'http://localhost:5173/auth/callback';
-    return res.redirect(`${frontendUrl}?token=${result.access_token}`);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return res.redirect(`${frontendUrl}/auth/callback?token=${result.access_token}`);
   }
 
   @Post('register')
