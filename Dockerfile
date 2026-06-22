@@ -18,4 +18,4 @@ RUN npx nest build ${APP_NAME}
 
 RUN ls -la /app/dist/apps/ || echo "No dist/apps folder"
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/apps/${APP_NAME}/main.js"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/apps/${APP_NAME}/main.js"]
