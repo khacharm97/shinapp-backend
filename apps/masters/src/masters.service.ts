@@ -28,10 +28,24 @@ export class MastersService {
     if (filters?.availableNow) AND.push({ userInfo: { is: { availableNow: filters.availableNow } } });
 
     if (filters?.search) {
+      // Enable pg_trgm extension for fuzzy search if not already enabled
+      await this.prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
+      
+      const searchStr = filters.search;
+      const searchLike = `%${searchStr}%`;
+      
+      // Find all UserInfo records where any skill partially or fuzzily matches the search string
+      const matchingUserInfo = await this.prisma.$queryRaw<{ userId: string }[]>`
+        SELECT "userId" FROM "UserInfo"
+        WHERE array_to_string(skills, ',') ILIKE ${searchLike}
+           OR similarity(array_to_string(skills, ','), ${searchStr}) > 0.3
+      `;
+      const matchingUserIds = matchingUserInfo.map(info => info.userId);
+
       AND.push({
         OR: [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { userInfo: { is: { skills: { has: filters.search } } } },
+          { id: { in: matchingUserIds } },
         ],
       });
     }
