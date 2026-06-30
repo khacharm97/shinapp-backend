@@ -83,14 +83,17 @@ let AuthController = class AuthController {
     async login(data) {
         return this.authService.login(data);
     }
+    async googleLogin(data) {
+        return this.authService.googleLogin(data);
+    }
     async getProfile(data) {
         return this.authService.getProfile(data.userId);
     }
-    async getMasters(data) {
-        return this.authService.getMasters(data.page, data.limit);
-    }
     async updateProfile(data) {
         return this.authService.updateProfile(data.userId, data.profileData);
+    }
+    async updateAvatar(data) {
+        return this.authService.updateAvatar(data.userId, data.avatarUrl);
     }
 };
 exports.AuthController = AuthController;
@@ -109,6 +112,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'google-login' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "googleLogin", null);
+__decorate([
     (0, microservices_1.MessagePattern)({ cmd: 'get-profile' }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
@@ -116,19 +126,19 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getProfile", null);
 __decorate([
-    (0, microservices_1.MessagePattern)({ cmd: 'get-masters' }),
-    __param(0, (0, microservices_1.Payload)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "getMasters", null);
-__decorate([
     (0, microservices_1.MessagePattern)({ cmd: 'update-profile' }),
     __param(0, (0, microservices_1.Payload)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "updateProfile", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'update-avatar' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "updateAvatar", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [typeof (_a = typeof auth_service_1.AuthService !== "undefined" && auth_service_1.AuthService) === "function" ? _a : Object])
@@ -218,7 +228,7 @@ let AuthService = class AuthService {
         let user = userOrCredentials;
         if (userOrCredentials.identifier && userOrCredentials.password) {
             const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
-            if (!dbUser)
+            if (!dbUser || !dbUser.password)
                 throw new common_1.UnauthorizedException('Invalid credentials');
             const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
             if (!isPasswordValid)
@@ -238,14 +248,41 @@ let AuthService = class AuthService {
             }
         };
     }
+    async googleLogin(profile) {
+        if (!profile) {
+            throw new common_1.UnauthorizedException('No user from google');
+        }
+        let user = await this.usersService.findByGoogleId(profile.googleId);
+        if (!user && profile.email) {
+            user = await this.usersService.findByIdentifier(profile.email);
+            if (user) {
+                user = await this.usersService.update(user.id, { googleId: profile.googleId });
+            }
+        }
+        const mappedRoles = profile.role === 'master' ? ['MASTER'] : ['USER'];
+        if (!user) {
+            user = await this.usersService.create({
+                googleId: profile.googleId,
+                email: profile.email,
+                name: profile.firstName ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Google User',
+                roles: mappedRoles,
+            });
+        }
+        else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
+            user = await this.usersService.update(user.id, {
+                roles: [...user.roles, 'MASTER']
+            });
+        }
+        return this.login(user);
+    }
     async getProfile(userId) {
         return this.usersService.getUserProfile(userId);
     }
-    async getMasters(page, limit) {
-        return this.usersService.findMasters(page, limit);
-    }
     async updateProfile(userId, data) {
         return this.usersService.upsertUserInfo(userId, data);
+    }
+    async updateAvatar(userId, avatarUrl) {
+        return this.usersService.updateAvatar(userId, avatarUrl);
     }
 };
 exports.AuthService = AuthService;
@@ -287,6 +324,19 @@ let UsersService = class UsersService {
             include: { userInfo: true },
         });
     }
+    async findByGoogleId(googleId) {
+        return this.prisma.user.findUnique({
+            where: { googleId },
+            include: { userInfo: true },
+        });
+    }
+    async update(id, data) {
+        return this.prisma.user.update({
+            where: { id },
+            data,
+            include: { userInfo: true },
+        });
+    }
     async create(data) {
         return this.prisma.user.create({
             data,
@@ -303,40 +353,13 @@ let UsersService = class UsersService {
                 email: true,
                 phone: true,
                 roles: true,
+                avatarUrl: true,
+                verifiedAt: true,
                 userInfo: true,
             },
         });
         console.log('getUserProfile result:', user);
         return user;
-    }
-    async findMasters(page = 1, limit = 10) {
-        const skip = (page - 1) * limit;
-        const [items, total] = await Promise.all([
-            this.prisma.user.findMany({
-                where: {
-                    roles: {
-                        has: 'MASTER',
-                    },
-                },
-                include: { userInfo: true },
-                skip,
-                take: limit,
-            }),
-            this.prisma.user.count({
-                where: {
-                    roles: {
-                        has: 'MASTER',
-                    },
-                },
-            }),
-        ]);
-        return {
-            items,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
     }
     async upsertUserInfo(userId, data) {
         const { name, phone, email, ...userInfoData } = data;
@@ -344,13 +367,13 @@ let UsersService = class UsersService {
             await this.prisma.user.update({
                 where: { id: userId },
                 data: {
-                    ...(name !== undefined && { name }),
-                    ...(phone !== undefined && { phone }),
-                    ...(email !== undefined && { email }),
+                    ...(name !== undefined && { name: name || null }),
+                    ...(phone !== undefined && { phone: phone || null }),
+                    ...(email !== undefined && { email: email || null }),
                 },
             });
         }
-        return this.prisma.userInfo.upsert({
+        await this.prisma.userInfo.upsert({
             where: { userId },
             update: userInfoData,
             create: {
@@ -358,6 +381,44 @@ let UsersService = class UsersService {
                 userId,
             },
         });
+        await this.checkVerificationStatus(userId);
+        return this.getUserProfile(userId);
+    }
+    async updateAvatar(userId, avatarUrl) {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { avatarUrl },
+        });
+        await this.checkVerificationStatus(userId);
+        return this.getUserProfile(userId);
+    }
+    async checkVerificationStatus(userId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { userInfo: true },
+        });
+        if (!user)
+            return;
+        const isVerified = !!user.avatarUrl &&
+            !!user.phone &&
+            !!user.email &&
+            !!user.userInfo?.regionId &&
+            !!user.userInfo?.cityId &&
+            !!user.userInfo?.about &&
+            (user.userInfo?.skills?.length || 0) >= 1;
+        const currentlyVerified = user.verifiedAt !== null;
+        if (isVerified && !currentlyVerified) {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { verifiedAt: new Date() },
+            });
+        }
+        else if (!isVerified && currentlyVerified) {
+            await this.prisma.user.update({
+                where: { id: userId },
+                data: { verifiedAt: null },
+            });
+        }
     }
 };
 exports.UsersService = UsersService;

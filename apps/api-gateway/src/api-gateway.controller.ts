@@ -61,16 +61,54 @@ export class ApiGatewayController {
   @Get('masters')
   async getMasters(
     @Query('page') page: string = '1',
-    @Query('limit') limit: string = '10'
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('regionId') regionId?: string,
+    @Query('cityId') cityId?: string,
+    @Query('topRated') topRated?: string,
+    @Query('availableNow') availableNow?: string
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
-    return firstValueFrom(this.mastersService.send({ cmd: 'get-masters' }, { page: pageNum, limit: limitNum }));
+    
+    return firstValueFrom(this.mastersService.send({ cmd: 'get-masters' }, { 
+      page: pageNum, 
+      limit: limitNum,
+      search,
+      regionId,
+      cityId,
+      topRated: topRated === 'true',
+      availableNow: availableNow === 'true'
+    }));
   }
 
   @Get('masters/:id')
   async getMasterById(@Param('id') id: string) {
     return firstValueFrom(this.mastersService.send({ cmd: 'get-master-by-id' }, { id }));
+  }
+
+  @Get('search')
+  async globalSearch(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('regionId') regionId?: string,
+    @Query('cityId') cityId?: string,
+    @Query('topRated') topRated?: string,
+    @Query('availableNow') availableNow?: string
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    
+    return firstValueFrom(this.mastersService.send({ cmd: 'global-search' }, { 
+      page: pageNum, 
+      limit: limitNum,
+      search,
+      regionId,
+      cityId,
+      topRated: topRated === 'true',
+      availableNow: availableNow === 'true'
+    }));
   }
 
   @Get('test-profile/:id')

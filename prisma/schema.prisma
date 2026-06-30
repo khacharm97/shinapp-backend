@@ -44,11 +44,25 @@ model UserInfo {
   onlinePay    Boolean @default(false)
   buyMaterial  Boolean @default(false)
   nightShift   Boolean @default(false)
+  topRated     Boolean @default(false)
+  availableNow Boolean @default(true)
 
   pricingFormat String?
   priceValue    String?
   about         String?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContactRequest {
+  id        String   @id @default(uuid())
+  email     String
+  firstName String?
+  lastName  String?
+  notes     String?
+  contact   Boolean  @default(false)
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

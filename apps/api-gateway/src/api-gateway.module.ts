@@ -6,6 +6,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './common/strategies/google.strategy';
+import { AdminGatewayController } from './admin.controller';
+import { ContactRequestsController } from './contact-requests.controller';
 
 @Module({
   imports: [
@@ -26,6 +28,14 @@ import { GoogleStrategy } from './common/strategies/google.strategy';
           port: 3002,
         },
       },
+      {
+        name: 'ADMIN_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.ADMIN_HOST || 'localhost',
+          port: 3003,
+        },
+      },
     ]),
     PassportModule,
     JwtModule.register({
@@ -33,7 +43,7 @@ import { GoogleStrategy } from './common/strategies/google.strategy';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  controllers: [ApiGatewayController],
+  controllers: [ApiGatewayController, AdminGatewayController, ContactRequestsController],
   providers: [ApiGatewayService, JwtStrategy, GoogleStrategy],
 })
 export class ApiGatewayModule {}
