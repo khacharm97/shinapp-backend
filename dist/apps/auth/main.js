@@ -95,6 +95,15 @@ let AuthController = class AuthController {
     async updateAvatar(data) {
         return this.authService.updateAvatar(data.userId, data.avatarUrl);
     }
+    async checkBlocked(data) {
+        return this.authService.usersService.checkBlocked(data.id);
+    }
+    async createPortfolio(data) {
+        return this.authService.createPortfolio(data.userId, data.portfolioData);
+    }
+    async deletePortfolio(data) {
+        return this.authService.deletePortfolio(data.userId, data.portfolioId);
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -139,6 +148,27 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "updateAvatar", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'auth.check_blocked' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "checkBlocked", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'create-portfolio' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "createPortfolio", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'delete-portfolio' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "deletePortfolio", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [typeof (_a = typeof auth_service_1.AuthService !== "undefined" && auth_service_1.AuthService) === "function" ? _a : Object])
@@ -210,7 +240,7 @@ let AuthService = class AuthService {
         const identifier = data.email || data.phone;
         const existingUser = await this.usersService.findByIdentifier(identifier);
         if (existingUser) {
-            throw new common_1.ConflictException('User already exists');
+            throw new common_1.ConflictException('auth_error_user_exists');
         }
         const hashedPassword = await bcrypt.hash(data.password, 10);
         const mappedRoles = data.role === 'master' ? ['MASTER'] : ['USER'];
@@ -221,6 +251,11 @@ let AuthService = class AuthService {
             phone: data.phone || null,
             password: hashedPassword,
             roles: mappedRoles,
+        }).catch((e) => {
+            if (e.code === 'P2002') {
+                throw new common_1.ConflictException('auth_error_user_exists');
+            }
+            throw e;
         });
         return this.login(user);
     }
@@ -229,11 +264,14 @@ let AuthService = class AuthService {
         if (userOrCredentials.identifier && userOrCredentials.password) {
             const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
             if (!dbUser || !dbUser.password)
-                throw new common_1.UnauthorizedException('Invalid credentials');
+                throw new common_1.UnauthorizedException('auth_error_invalid_credentials');
             const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
             if (!isPasswordValid)
-                throw new common_1.UnauthorizedException('Invalid credentials');
+                throw new common_1.UnauthorizedException('auth_error_invalid_credentials');
             user = dbUser;
+        }
+        if (user.isBlocked) {
+            throw new common_1.ForbiddenException('auth_error_user_blocked');
         }
         const payload = { sub: user.id, roles: user.roles };
         return {
@@ -283,6 +321,12 @@ let AuthService = class AuthService {
     }
     async updateAvatar(userId, avatarUrl) {
         return this.usersService.updateAvatar(userId, avatarUrl);
+    }
+    async createPortfolio(userId, data) {
+        return this.usersService.createPortfolio(userId, data);
+    }
+    async deletePortfolio(userId, portfolioId) {
+        return this.usersService.deletePortfolio(userId, portfolioId);
     }
 };
 exports.AuthService = AuthService;
@@ -355,14 +399,74 @@ let UsersService = class UsersService {
                 roles: true,
                 avatarUrl: true,
                 verifiedAt: true,
+                isBlocked: true,
                 userInfo: true,
+                portfolios: {
+                    orderBy: {
+                        order: 'asc'
+                    }
+                }
             },
         });
         console.log('getUserProfile result:', user);
         return user;
     }
+    async createPortfolio(userId, data) {
+        await this.prisma.portfolio.create({
+            data: {
+                userId,
+                ...data,
+            }
+        });
+        return this.getUserProfile(userId);
+    }
+    async deletePortfolio(userId, portfolioId) {
+        const portfolio = await this.prisma.portfolio.findFirst({
+            where: { id: portfolioId, userId }
+        });
+        if (portfolio) {
+            await this.prisma.portfolio.delete({
+                where: { id: portfolioId }
+            });
+        }
+        return this.getUserProfile(userId);
+    }
+    async checkBlocked(userId) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { isBlocked: true },
+        });
+        return { isBlocked: user?.isBlocked || false };
+    }
     async upsertUserInfo(userId, data) {
         const { name, phone, email, ...userInfoData } = data;
+        if (userInfoData.skills && Array.isArray(userInfoData.skills)) {
+            const existingSkills = await this.prisma.skill.findMany({
+                where: { key: { in: userInfoData.skills } }
+            });
+            const existingKeys = new Set(existingSkills.map(s => s.key));
+            const newSkillsToCreate = userInfoData.skills.filter((skillKey) => !existingKeys.has(skillKey));
+            for (const newSkillName of newSkillsToCreate) {
+                const generatedKey = newSkillName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                const check = await this.prisma.skill.findUnique({ where: { key: generatedKey } });
+                if (!check) {
+                    await this.prisma.skill.create({
+                        data: {
+                            key: generatedKey,
+                            nameEn: newSkillName,
+                            nameAm: newSkillName,
+                            nameRu: newSkillName,
+                            approved: false,
+                        }
+                    });
+                }
+                const index = userInfoData.skills.indexOf(newSkillName);
+                if (index !== -1) {
+                    userInfoData.skills[index] = generatedKey;
+                }
+            }
+            userInfoData.skills = userInfoData.skills.filter((k) => k.length > 0);
+        }
         if (name !== undefined || phone !== undefined || email !== undefined) {
             await this.prisma.user.update({
                 where: { id: userId },

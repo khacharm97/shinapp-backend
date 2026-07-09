@@ -35,4 +35,20 @@ export class AuthController {
   async updateAvatar(@Payload() data: { userId: string, avatarUrl: string }) {
     return this.authService.updateAvatar(data.userId, data.avatarUrl);
   }
+
+  @MessagePattern({ cmd: 'auth.check_blocked' })
+  async checkBlocked(@Payload() data: { id: string }) {
+    // We can call usersService directly from here since authService just delegates it anyway
+    return (this.authService as any).usersService.checkBlocked(data.id);
+  }
+
+  @MessagePattern({ cmd: 'create-portfolio' })
+  async createPortfolio(@Payload() data: { userId: string, portfolioData: any }) {
+    return this.authService.createPortfolio(data.userId, data.portfolioData);
+  }
+
+  @MessagePattern({ cmd: 'delete-portfolio' })
+  async deletePortfolio(@Payload() data: { userId: string, portfolioId: string }) {
+    return this.authService.deletePortfolio(data.userId, data.portfolioId);
+  }
 }

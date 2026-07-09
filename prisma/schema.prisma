@@ -24,8 +24,10 @@ model User {
   updatedAt  DateTime @updatedAt
   avatarUrl  String?
   verifiedAt DateTime?
+  isBlocked  Boolean  @default(false)
 
   userInfo UserInfo?
+  portfolios Portfolio[]
 
   @@unique([email, phone]) // Allows efficient querying for either
 }
@@ -65,4 +67,29 @@ model ContactRequest {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Skill {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  nameEn    String
+  nameAm    String
+  nameRu    String
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Portfolio {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  imageUrls   String[] @default([])
+  order       Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

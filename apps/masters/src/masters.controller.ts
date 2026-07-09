@@ -34,4 +34,14 @@ export class MastersController {
   getMasterById(@Payload() data: { id: string }) {
     return this.mastersService.getMasterById(data.id);
   }
+
+  @MessagePattern({ cmd: 'get-skills' })
+  getSkills(@Payload() data: { approvedOnly?: boolean }) {
+    return this.mastersService.getSkills(data?.approvedOnly);
+  }
+
+  @MessagePattern({ cmd: 'suggest-skill' })
+  suggestSkill(@Payload() data: { key: string; nameEn: string; nameAm: string; nameRu: string }) {
+    return this.mastersService.suggestSkill(data);
+  }
 }

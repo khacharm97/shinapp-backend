@@ -49,17 +49,89 @@ export class UsersService {
         roles: true,
         avatarUrl: true,
         verifiedAt: true,
+        isBlocked: true,
         userInfo: true,
+        portfolios: {
+          orderBy: {
+            order: 'asc'
+          }
+        }
       },
     });
     console.log('getUserProfile result:', user);
     return user;
   }
 
+  async createPortfolio(userId: string, data: { title: string, description?: string, imageUrls: string[], order?: number }) {
+    await this.prisma.portfolio.create({
+      data: {
+        userId,
+        ...data,
+      }
+    });
+    return this.getUserProfile(userId);
+  }
 
+  async deletePortfolio(userId: string, portfolioId: string) {
+    const portfolio = await this.prisma.portfolio.findFirst({
+      where: { id: portfolioId, userId }
+    });
+    
+    if (portfolio) {
+      await this.prisma.portfolio.delete({
+        where: { id: portfolioId }
+      });
+    }
+    return this.getUserProfile(userId);
+  }
+
+  async checkBlocked(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isBlocked: true },
+    });
+    return { isBlocked: user?.isBlocked || false };
+  }
 
   async upsertUserInfo(userId: string, data: any) {
     const { name, phone, email, ...userInfoData } = data;
+
+    // Handle custom skills
+    if (userInfoData.skills && Array.isArray(userInfoData.skills)) {
+      const existingSkills = await this.prisma.skill.findMany({
+        where: { key: { in: userInfoData.skills } }
+      });
+      const existingKeys = new Set(existingSkills.map(s => s.key));
+
+      const newSkillsToCreate = userInfoData.skills.filter((skillKey: string) => !existingKeys.has(skillKey));
+      for (const newSkillName of newSkillsToCreate) {
+        // Generate a slug-like key
+        const generatedKey = newSkillName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        
+        // Ensure it doesn't already exist by key (e.g. user typed a key accidentally)
+        const check = await this.prisma.skill.findUnique({ where: { key: generatedKey }});
+        if (!check) {
+          await this.prisma.skill.create({
+            data: {
+              key: generatedKey,
+              nameEn: newSkillName,
+              nameAm: newSkillName,
+              nameRu: newSkillName,
+              approved: false,
+            }
+          });
+        }
+        
+        // Replace the user's raw input with the generated key in their skills array
+        const index = userInfoData.skills.indexOf(newSkillName);
+        if (index !== -1) {
+          userInfoData.skills[index] = generatedKey;
+        }
+      }
+      
+      // Filter out empty keys that might result from weird characters
+      userInfoData.skills = userInfoData.skills.filter((k: string) => k.length > 0);
+    }
 
     // Update User core fields if provided
     if (name !== undefined || phone !== undefined || email !== undefined) {

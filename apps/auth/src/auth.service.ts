@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from './users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -14,7 +14,7 @@ export class AuthService {
     const identifier = data.email || data.phone;
     const existingUser = await this.usersService.findByIdentifier(identifier);
     if (existingUser) {
-      throw new ConflictException('User already exists');
+      throw new ConflictException('auth_error_user_exists');
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -31,6 +31,11 @@ export class AuthService {
       phone: data.phone || null,
       password: hashedPassword,
       roles: mappedRoles as any, // Cast to any to avoid strict Prisma enum typing issues
+    }).catch((e) => {
+      if (e.code === 'P2002') {
+        throw new ConflictException('auth_error_user_exists');
+      }
+      throw e;
     });
 
     return this.login(user);
@@ -40,12 +45,16 @@ export class AuthService {
     let user = userOrCredentials;
     if (userOrCredentials.identifier && userOrCredentials.password) {
       const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
-      if (!dbUser || !dbUser.password) throw new UnauthorizedException('Invalid credentials');
+      if (!dbUser || !dbUser.password) throw new UnauthorizedException('auth_error_invalid_credentials');
 
       const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
-      if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+      if (!isPasswordValid) throw new UnauthorizedException('auth_error_invalid_credentials');
       
       user = dbUser;
+    }
+
+    if (user.isBlocked) {
+      throw new ForbiddenException('auth_error_user_blocked');
     }
 
     const payload = { sub: user.id, roles: user.roles };
@@ -108,5 +117,13 @@ export class AuthService {
 
   async updateAvatar(userId: string, avatarUrl: string) {
     return this.usersService.updateAvatar(userId, avatarUrl);
+  }
+
+  async createPortfolio(userId: string, data: { title: string, description?: string, imageUrls: string[], order?: number }) {
+    return this.usersService.createPortfolio(userId, data);
+  }
+
+  async deletePortfolio(userId: string, portfolioId: string) {
+    return this.usersService.deletePortfolio(userId, portfolioId);
   }
 }

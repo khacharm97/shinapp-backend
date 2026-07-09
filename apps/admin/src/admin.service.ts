@@ -55,7 +55,33 @@ export class AdminService {
         phone: true,
         roles: true,
         createdAt: true,
+        isBlocked: true,
       },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getUserById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        userInfo: true,
+        portfolios: true,
+      }
+    });
+  }
+
+  async toggleBlockUser(id: string, isBlocked: boolean) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { isBlocked },
+    });
+  }
+
+  async toggleVerifyUser(id: string, isVerified: boolean) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { verifiedAt: isVerified ? new Date() : null },
     });
   }
 
@@ -97,6 +123,31 @@ export class AdminService {
     return this.prisma.contactRequest.update({
       where: { id },
       data: { isRead: true }
+    });
+  }
+
+  async getAllSkills() {
+    return this.prisma.skill.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; approved: boolean }) {
+    return this.prisma.skill.create({
+      data,
+    });
+  }
+
+  async updateSkill(id: string, data: any) {
+    return this.prisma.skill.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteSkill(id: string) {
+    return this.prisma.skill.delete({
+      where: { id },
     });
   }
 }

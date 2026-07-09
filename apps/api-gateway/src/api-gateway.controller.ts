@@ -1,6 +1,6 @@
-import { Body, Controller, Post, Put, Get, UseGuards, Request, Inject, Param, Query, Res, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Body, Controller, Post, Put, Get, Delete, UseGuards, Request, Inject, Param, Query, Res, UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import * as fs from 'fs';
@@ -56,6 +56,16 @@ export class ApiGatewayController {
     const result = await firstValueFrom(this.authService.send({ cmd: 'login' }, body));
     console.log('Microservice login returned:', result);
     return result;
+  }
+
+  @Get('skills')
+  async getSkills(@Query('approvedOnly') approvedOnly: string = 'true') {
+    return firstValueFrom(this.mastersService.send({ cmd: 'get-skills' }, { approvedOnly: approvedOnly === 'true' }));
+  }
+
+  @Post('skills/suggest')
+  async suggestSkill(@Body() body: any) {
+    return firstValueFrom(this.mastersService.send({ cmd: 'suggest-skill' }, body));
   }
 
   @Get('masters')
@@ -171,6 +181,48 @@ export class ApiGatewayController {
     const avatarUrl = `/uploads/avatars/${file.filename}`;
     const result = await firstValueFrom(this.authService.send({ cmd: 'update-avatar' }, { userId: req.user.id, avatarUrl }));
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Post('profile/portfolio')
+  @UseInterceptors(FilesInterceptor('images', 3, {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        const uploadPath = './uploads/portfolios';
+        if (!fs.existsSync(uploadPath)) {
+          fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+      }
+    })
+  }))
+  async createPortfolio(
+    @Request() req,
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Body() body: any
+  ) {
+    const imageUrls = files?.map(f => `/uploads/portfolios/${f.filename}`) || [];
+    
+    const portfolioData = {
+      title: body.title,
+      description: body.description,
+      order: body.order ? parseInt(body.order, 10) : 0,
+      imageUrls,
+    };
+
+    return firstValueFrom(this.authService.send({ cmd: 'create-portfolio' }, { userId: req.user.id, portfolioData }));
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Delete('profile/portfolio/:id')
+  async deletePortfolio(@Request() req, @Param('id') id: string) {
+    return firstValueFrom(this.authService.send({ cmd: 'delete-portfolio' }, { userId: req.user.id, portfolioId: id }));
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

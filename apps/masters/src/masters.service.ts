@@ -19,6 +19,7 @@ export class MastersService {
       verifiedAt: {
         not: null,
       },
+      isBlocked: false,
     };
 
     const AND: any[] = [];
@@ -28,24 +29,26 @@ export class MastersService {
     if (filters?.availableNow) AND.push({ userInfo: { is: { availableNow: filters.availableNow } } });
 
     if (filters?.search) {
-      // Enable pg_trgm extension for fuzzy search if not already enabled
-      await this.prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS pg_trgm;');
-      
       const searchStr = filters.search;
-      const searchLike = `%${searchStr}%`;
       
-      // Find all UserInfo records where any skill partially or fuzzily matches the search string
-      const matchingUserInfo = await this.prisma.$queryRaw<{ userId: string }[]>`
-        SELECT "userId" FROM "UserInfo"
-        WHERE array_to_string(skills, ',') ILIKE ${searchLike}
-           OR similarity(array_to_string(skills, ','), ${searchStr}) > 0.3
-      `;
-      const matchingUserIds = matchingUserInfo.map(info => info.userId);
+      const matchingSkills = await this.prisma.skill.findMany({
+        where: {
+          approved: true,
+          OR: [
+            { nameAm: { contains: searchStr, mode: 'insensitive' } },
+            { nameRu: { contains: searchStr, mode: 'insensitive' } },
+            { nameEn: { contains: searchStr, mode: 'insensitive' } },
+            { key: { contains: searchStr, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      const matchingSkillKeys = matchingSkills.map(s => s.key);
 
       AND.push({
         OR: [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          { id: { in: matchingUserIds } },
+          matchingSkillKeys.length > 0 ? { userInfo: { is: { skills: { hasSome: matchingSkillKeys } } } } : { id: 'no-match-skill' }
         ],
       });
     }
@@ -100,7 +103,12 @@ export class MastersService {
           has: 'MASTER',
         },
       },
-      include: { userInfo: true },
+      include: { 
+        userInfo: true,
+        portfolios: {
+          orderBy: { order: 'asc' }
+        }
+      },
     });
 
     if (!master) {
@@ -109,5 +117,21 @@ export class MastersService {
 
     const { password, ...sanitizedMaster } = master;
     return sanitizedMaster;
+  }
+
+  async getSkills(approvedOnly: boolean = true) {
+    return this.prisma.skill.findMany({
+      where: approvedOnly ? { approved: true } : undefined,
+      orderBy: { nameEn: 'asc' },
+    });
+  }
+
+  async suggestSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string }) {
+    return this.prisma.skill.create({
+      data: {
+        ...data,
+        approved: false,
+      }
+    });
   }
 }
