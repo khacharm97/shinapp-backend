@@ -132,7 +132,7 @@ export class AdminService {
     });
   }
 
-  async createSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; approved: boolean }) {
+  async createSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; icon?: string; approved: boolean }) {
     return this.prisma.skill.create({
       data,
     });
