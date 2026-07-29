@@ -38,6 +38,7 @@ export class MastersService {
             { nameAm: { contains: searchStr, mode: 'insensitive' } },
             { nameRu: { contains: searchStr, mode: 'insensitive' } },
             { nameEn: { contains: searchStr, mode: 'insensitive' } },
+            { nameFa: { contains: searchStr, mode: 'insensitive' } },
             { key: { contains: searchStr, mode: 'insensitive' } },
           ],
         },
@@ -126,7 +127,7 @@ export class MastersService {
     });
   }
 
-  async suggestSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string }) {
+  async suggestSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; nameFa: string }) {
     return this.prisma.skill.create({
       data: {
         ...data,

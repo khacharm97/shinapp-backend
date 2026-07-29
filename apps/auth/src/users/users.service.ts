@@ -117,6 +117,7 @@ export class UsersService {
               nameEn: newSkillName,
               nameAm: newSkillName,
               nameRu: newSkillName,
+              nameFa: newSkillName,
               approved: false,
             }
           });

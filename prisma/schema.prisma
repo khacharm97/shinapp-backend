@@ -75,6 +75,7 @@ model Skill {
   nameEn    String
   nameAm    String
   nameRu    String
+  nameFa    String   @default("")
   icon      String?
   approved  Boolean  @default(false)
   createdAt DateTime @default(now())

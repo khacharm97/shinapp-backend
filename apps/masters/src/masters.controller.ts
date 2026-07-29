@@ -41,7 +41,7 @@ export class MastersController {
   }
 
   @MessagePattern({ cmd: 'suggest-skill' })
-  suggestSkill(@Payload() data: { key: string; nameEn: string; nameAm: string; nameRu: string }) {
+  suggestSkill(@Payload() data: { key: string; nameEn: string; nameAm: string; nameRu: string; nameFa: string }) {
     return this.mastersService.suggestSkill(data);
   }
 }

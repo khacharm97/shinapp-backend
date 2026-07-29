@@ -9,10 +9,10 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter } as any);
 
 const defaultSkills = [
-  { key: 'shinarar', nameEn: 'Builder', nameAm: 'Շինարար', nameRu: 'Строитель', approved: true },
-  { key: 'nerkarar', nameEn: 'Painter', nameAm: 'Ներկարար', nameRu: 'Маляр', approved: true },
-  { key: 'plumber', nameEn: 'Plumber', nameAm: 'Սանտեխնիկ', nameRu: 'Сантехник', approved: true },
-  { key: 'electrician', nameEn: 'Electrician', nameAm: 'Էլեկտրիկ', nameRu: 'Электрик', approved: true },
+  { key: 'shinarar', nameEn: 'Builder', nameAm: 'Շինարար', nameRu: 'Строитель', nameFa: 'سازنده', approved: true },
+  { key: 'nerkarar', nameEn: 'Painter', nameAm: 'Ներկարար', nameRu: 'Маляр', nameFa: 'نقاش', approved: true },
+  { key: 'plumber', nameEn: 'Plumber', nameAm: 'Սանտեխնիկ', nameRu: 'Сантехник', nameFa: 'لوله‌کش', approved: true },
+  { key: 'electrician', nameEn: 'Electrician', nameAm: 'Էլեկտրիկ', nameRu: 'Электрик', nameFa: 'برق‌کار', approved: true },
 ];
 
 async function main() {
