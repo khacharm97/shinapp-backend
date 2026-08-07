@@ -10,6 +10,7 @@ enum Role {
   USER
   ADMIN
   MASTER
+  COMPANY
 }
 
 model User {
@@ -55,6 +56,15 @@ model UserInfo {
   pricingFormat String?
   priceValue    String?
   about         String?
+
+  // Company specific fields
+  website         String?
+  socialFacebook  String?
+  socialInstagram String?
+  socialTiktok    String?
+  workingPlaces   String[] @default([])
+  itn             String?
+  workersCount    Int?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

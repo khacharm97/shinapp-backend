@@ -25,7 +25,9 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     // Map string role to Prisma Role Enum
-    const mappedRoles = data.role === 'master' ? ['MASTER'] : ['USER'];
+    let mappedRoles = ['USER'];
+    if (data.role === 'master') mappedRoles = ['MASTER'];
+    else if (data.role === 'company') mappedRoles = ['COMPANY'];
 
     // We save email as identifier if it includes @, otherwise phone
     const isEmail = identifier.includes('@');
@@ -115,11 +117,17 @@ export class AuthService {
         roles: mappedRoles as any,
         // password is now optional in schema, so we can omit it
       });
-    } else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
-      // Add MASTER role if they specifically signed up as master this time via google
-      user = await this.usersService.update(user.id, {
-        roles: [...user.roles, 'MASTER'] as any,
-      });
+    } else {
+      // Add MASTER or COMPANY role if they specifically signed up as such this time via google
+      if (profile.role === 'master' && !user.roles.includes('MASTER')) {
+        user = await this.usersService.update(user.id, {
+          roles: [...user.roles, 'MASTER'] as any,
+        });
+      } else if (profile.role === 'company' && !user.roles.includes('COMPANY')) {
+        user = await this.usersService.update(user.id, {
+          roles: [...user.roles, 'COMPANY'] as any,
+        });
+      }
     }
 
     return this.login(user);
