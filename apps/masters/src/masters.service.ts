@@ -159,4 +159,175 @@ export class MastersService {
       },
     });
   }
+
+  async createBrigade(data: { ownerId: string; name: string; invites: string[] }) {
+    const { ownerId, name, invites } = data;
+
+    if (!name || name.trim() === '') {
+      return { error: 'Brigade name is required' };
+    }
+
+    const uniqueInvites = [...new Set(invites)];
+    const invalidInvites: string[] = [];
+    const validUserIds: string[] = [];
+
+    for (const invite of uniqueInvites) {
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: invite }, { phone: invite }],
+        },
+      });
+
+      if (!user || !user.roles.includes('MASTER')) {
+        invalidInvites.push(invite);
+      } else if (user.id === ownerId) {
+        // can't invite yourself
+        invalidInvites.push(invite + " (cannot invite yourself)");
+      } else {
+        validUserIds.push(user.id);
+      }
+    }
+
+    if (invalidInvites.length > 0) {
+      return { error: `Invalid invites: The following users were not found, are not masters, or are invalid: ${invalidInvites.join(', ')}` };
+    }
+
+    const brigade = await this.prisma.brigade.create({
+      data: {
+        name,
+        ownerId,
+        members: {
+          create: validUserIds.map((userId) => ({
+            userId,
+            status: 'PENDING',
+          })),
+        },
+      },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, phone: true, avatarUrl: true }
+            }
+          }
+        }
+      }
+    });
+
+    return brigade;
+  }
+
+  async getBrigadesByOwnerId(ownerId: string) {
+    return this.prisma.brigade.findMany({
+      where: { ownerId },
+      include: {
+        members: {
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async deleteBrigade(data: { ownerId: string; brigadeId: string }) {
+    const { ownerId, brigadeId } = data;
+    
+    const brigade = await this.prisma.brigade.findFirst({
+      where: { id: brigadeId, ownerId }
+    });
+    
+    if (!brigade) {
+      return { error: 'Brigade not found or unauthorized' };
+    }
+    
+    await this.prisma.brigade.delete({
+      where: { id: brigadeId }
+    });
+    
+    return { success: true };
+  }
+
+  async updateBrigade(data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
+    const { ownerId, brigadeId, name, invites, removeMemberIds } = data;
+    
+    const brigade = await this.prisma.brigade.findFirst({
+      where: { id: brigadeId, ownerId }
+    });
+    
+    if (!brigade) {
+      return { error: 'Brigade not found or unauthorized' };
+    }
+
+    if (!name || name.trim() === '') {
+      return { error: 'Brigade name is required' };
+    }
+
+    const uniqueInvites = [...new Set(invites)];
+    const invalidInvites: string[] = [];
+    const validUserIds: string[] = [];
+
+    for (const invite of uniqueInvites) {
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: invite }, { phone: invite }],
+        },
+      });
+
+      if (!user || !user.roles.includes('MASTER')) {
+        invalidInvites.push(invite);
+      } else if (user.id === ownerId) {
+        invalidInvites.push(invite + " (cannot invite yourself)");
+      } else {
+        const existingMember = await this.prisma.brigadeMember.findFirst({
+          where: { brigadeId, userId: user.id }
+        });
+        if (!existingMember) {
+          validUserIds.push(user.id);
+        }
+      }
+    }
+
+    if (invalidInvites.length > 0) {
+      return { error: `Invalid invites: The following users were not found, are not masters, or are invalid: ${invalidInvites.join(', ')}` };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.brigade.update({
+        where: { id: brigadeId },
+        data: { name }
+      });
+      
+      if (removeMemberIds && removeMemberIds.length > 0) {
+        await tx.brigadeMember.deleteMany({
+          where: {
+            id: { in: removeMemberIds },
+            brigadeId: brigadeId 
+          }
+        });
+      }
+      
+      if (validUserIds.length > 0) {
+        await tx.brigadeMember.createMany({
+          data: validUserIds.map((userId) => ({
+            brigadeId,
+            userId,
+            status: 'PENDING',
+          }))
+        });
+      }
+    });
+
+    return this.prisma.brigade.findUnique({
+      where: { id: brigadeId },
+      include: {
+        members: {
+          include: {
+            user: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } }
+          }
+        }
+      }
+    });
+  }
 }

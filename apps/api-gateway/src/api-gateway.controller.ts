@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UploadedFile,
   UploadedFiles,
+  BadRequestException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
@@ -25,7 +26,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { Roles } from './common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
-import { ApiExcludeEndpoint, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiExcludeEndpoint, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 import { GoogleAuthGuard } from './common/guards/google-auth.guard';
 
@@ -323,6 +324,92 @@ export class ApiGatewayController {
         { userId: req.user.id, portfolioId: id },
       ),
     );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Post('profile/brigade')
+  @ApiOperation({ summary: 'Create a new Brigade and invite members' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'Super Builders' },
+        invites: { type: 'array', items: { type: 'string' }, example: ['test@example.com'] },
+      },
+    },
+  })
+  async createBrigade(@Request() req, @Body() body: { name: string; invites: string[] }) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'create-brigade' },
+        { ownerId: req.user.id, name: body.name, invites: body.invites || [] },
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Get('profile/brigade')
+  @ApiOperation({ summary: 'Get all brigades owned by the current master' })
+  async getBrigades(@Request() req) {
+    return firstValueFrom(
+      this.mastersService.send({ cmd: 'get-brigades' }, { ownerId: req.user.id }),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Delete('profile/brigade/:id')
+  @ApiOperation({ summary: 'Delete a brigade' })
+  async deleteBrigade(@Request() req, @Param('id') id: string) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'delete-brigade' },
+        { ownerId: req.user.id, brigadeId: id }
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
+  @Put('profile/brigade/:id')
+  @ApiOperation({ summary: 'Update a brigade' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', example: 'Updated Builders' },
+        invites: { type: 'array', items: { type: 'string' }, example: ['new@example.com'] },
+        removeMemberIds: { type: 'array', items: { type: 'string' }, example: ['uuid'] },
+      },
+    },
+  })
+  async updateBrigade(@Request() req, @Param('id') id: string, @Body() body: { name: string; invites: string[]; removeMemberIds: string[] }) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'update-brigade' },
+        { 
+          ownerId: req.user.id, 
+          brigadeId: id, 
+          name: body.name, 
+          invites: body.invites || [],
+          removeMemberIds: body.removeMemberIds || [] 
+        }
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

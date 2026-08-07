@@ -28,6 +28,8 @@ model User {
 
   userInfo UserInfo?
   portfolios Portfolio[]
+  ownedBrigades Brigade[] @relation("BrigadeOwner")
+  brigadeMemberships BrigadeMember[] @relation("BrigadeMembership")
 
   @@unique([email, phone]) // Allows efficient querying for either
 }
@@ -94,4 +96,35 @@ model Portfolio {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Brigade {
+  id          String   @id @default(uuid())
+  name        String
+  ownerId     String
+  owner       User     @relation("BrigadeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  members     BrigadeMember[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BrigadeMember {
+  id          String   @id @default(uuid())
+  brigadeId   String
+  brigade     Brigade  @relation(fields: [brigadeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation("BrigadeMembership", fields: [userId], references: [id], onDelete: Cascade)
+  status      InviteStatus @default(PENDING)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([brigadeId, userId])
 }

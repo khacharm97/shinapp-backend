@@ -75,4 +75,24 @@ export class MastersController {
   ) {
     return this.mastersService.suggestSkill(data);
   }
+
+  @MessagePattern({ cmd: 'create-brigade' })
+  createBrigade(@Payload() data: { ownerId: string; name: string; invites: string[] }) {
+    return this.mastersService.createBrigade(data);
+  }
+
+  @MessagePattern({ cmd: 'get-brigades' })
+  getBrigades(@Payload() data: { ownerId: string }) {
+    return this.mastersService.getBrigadesByOwnerId(data.ownerId);
+  }
+
+  @MessagePattern({ cmd: 'delete-brigade' })
+  deleteBrigade(@Payload() data: { ownerId: string; brigadeId: string }) {
+    return this.mastersService.deleteBrigade(data);
+  }
+
+  @MessagePattern({ cmd: 'update-brigade' })
+  updateBrigade(@Payload() data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
+    return this.mastersService.updateBrigade(data);
+  }
 }
