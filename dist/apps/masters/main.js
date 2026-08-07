@@ -24,12 +24,25 @@ const common_1 = __webpack_require__(3);
 const masters_controller_1 = __webpack_require__(4);
 const masters_service_1 = __webpack_require__(6);
 const prisma_module_1 = __webpack_require__(11);
+const microservices_1 = __webpack_require__(5);
 let MastersModule = class MastersModule {
 };
 exports.MastersModule = MastersModule;
 exports.MastersModule = MastersModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule],
+        imports: [
+            prisma_module_1.PrismaModule,
+            microservices_1.ClientsModule.register([
+                {
+                    name: 'NOTIFICATIONS_SERVICE',
+                    transport: microservices_1.Transport.TCP,
+                    options: {
+                        host: process.env.NOTIFICATIONS_HOST || 'localhost',
+                        port: 3004,
+                    },
+                },
+            ]),
+        ],
         controllers: [masters_controller_1.MastersController],
         providers: [masters_service_1.MastersService],
     })
@@ -99,6 +112,24 @@ let MastersController = class MastersController {
     suggestSkill(data) {
         return this.mastersService.suggestSkill(data);
     }
+    createBrigade(data) {
+        return this.mastersService.createBrigade(data);
+    }
+    getBrigades(data) {
+        return this.mastersService.getBrigadesByOwnerId(data.ownerId);
+    }
+    deleteBrigade(data) {
+        return this.mastersService.deleteBrigade(data);
+    }
+    updateBrigade(data) {
+        return this.mastersService.updateBrigade(data);
+    }
+    acceptBrigadeInvite(data) {
+        return this.mastersService.acceptBrigadeInvite(data);
+    }
+    rejectBrigadeInvite(data) {
+        return this.mastersService.rejectBrigadeInvite(data);
+    }
 };
 exports.MastersController = MastersController;
 __decorate([
@@ -136,6 +167,48 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], MastersController.prototype, "suggestSkill", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'create-brigade' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "createBrigade", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'get-brigades' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "getBrigades", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'delete-brigade' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "deleteBrigade", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'update-brigade' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "updateBrigade", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'accept-brigade-invite' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "acceptBrigadeInvite", null);
+__decorate([
+    (0, microservices_1.MessagePattern)({ cmd: 'reject-brigade-invite' }),
+    __param(0, (0, microservices_1.Payload)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], MastersController.prototype, "rejectBrigadeInvite", null);
 exports.MastersController = MastersController = __decorate([
     (0, common_1.Controller)(),
     __metadata("design:paramtypes", [typeof (_a = typeof masters_service_1.MastersService !== "undefined" && masters_service_1.MastersService) === "function" ? _a : Object])
@@ -162,15 +235,22 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-var _a;
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MastersService = void 0;
 const common_1 = __webpack_require__(3);
 const prisma_service_1 = __webpack_require__(7);
+const microservices_1 = __webpack_require__(5);
+const client_1 = __webpack_require__(8);
 let MastersService = class MastersService {
     prisma;
-    constructor(prisma) {
+    notificationsService;
+    constructor(prisma, notificationsService) {
         this.prisma = prisma;
+        this.notificationsService = notificationsService;
     }
     async getMasters(page = 1, limit = 10, filters) {
         const skip = (page - 1) * limit;
@@ -201,15 +281,18 @@ let MastersService = class MastersService {
                         { nameAm: { contains: searchStr, mode: 'insensitive' } },
                         { nameRu: { contains: searchStr, mode: 'insensitive' } },
                         { nameEn: { contains: searchStr, mode: 'insensitive' } },
+                        { nameFa: { contains: searchStr, mode: 'insensitive' } },
                         { key: { contains: searchStr, mode: 'insensitive' } },
                     ],
                 },
             });
-            const matchingSkillKeys = matchingSkills.map(s => s.key);
+            const matchingSkillKeys = matchingSkills.map((s) => s.key);
             AND.push({
                 OR: [
                     { name: { contains: filters.search, mode: 'insensitive' } },
-                    matchingSkillKeys.length > 0 ? { userInfo: { is: { skills: { hasSome: matchingSkillKeys } } } } : { id: 'no-match-skill' }
+                    matchingSkillKeys.length > 0
+                        ? { userInfo: { is: { skills: { hasSome: matchingSkillKeys } } } }
+                        : { id: 'no-match-skill' },
                 ],
             });
         }
@@ -253,8 +336,8 @@ let MastersService = class MastersService {
             include: {
                 userInfo: true,
                 portfolios: {
-                    orderBy: { order: 'asc' }
-                }
+                    orderBy: { order: 'asc' },
+                },
             },
         });
         if (!master) {
@@ -274,14 +357,209 @@ let MastersService = class MastersService {
             data: {
                 ...data,
                 approved: false,
+            },
+        });
+    }
+    async createBrigade(data) {
+        const { ownerId, name, invites } = data;
+        if (!name || name.trim() === '') {
+            return { error: 'Brigade name is required' };
+        }
+        const uniqueInvites = [...new Set(invites)];
+        const invalidInvites = [];
+        const validUserIds = [];
+        for (const invite of uniqueInvites) {
+            const user = await this.prisma.user.findFirst({
+                where: {
+                    OR: [{ email: invite }, { phone: invite }],
+                },
+            });
+            if (!user || !user.roles.includes('MASTER')) {
+                invalidInvites.push(invite);
+            }
+            else if (user.id === ownerId) {
+                invalidInvites.push(invite + " (cannot invite yourself)");
+            }
+            else {
+                validUserIds.push(user.id);
+            }
+        }
+        if (invalidInvites.length > 0) {
+            return { error: `Invalid invites: The following users were not found, are not masters, or are invalid: ${invalidInvites.join(', ')}` };
+        }
+        const brigade = await this.prisma.brigade.create({
+            data: {
+                name,
+                ownerId,
+                members: {
+                    create: validUserIds.map((userId) => ({
+                        userId,
+                        status: 'PENDING',
+                    })),
+                },
+            },
+            include: {
+                members: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true, email: true, phone: true, avatarUrl: true }
+                        }
+                    }
+                }
             }
         });
+        for (const userId of validUserIds) {
+            this.notificationsService.emit({ cmd: 'create-notification' }, {
+                userId,
+                type: client_1.NotificationType.BRIGADE_INVITE,
+                title: 'Brigade Invitation',
+                message: `You have been invited to join the brigade "${brigade.name}".`,
+                metadata: { brigadeId: brigade.id },
+            });
+        }
+        return brigade;
+    }
+    async getBrigadesByOwnerId(ownerId) {
+        return this.prisma.brigade.findMany({
+            where: { ownerId },
+            include: {
+                members: {
+                    include: {
+                        user: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+    }
+    async deleteBrigade(data) {
+        const { ownerId, brigadeId } = data;
+        const brigade = await this.prisma.brigade.findFirst({
+            where: { id: brigadeId, ownerId }
+        });
+        if (!brigade) {
+            return { error: 'Brigade not found or unauthorized' };
+        }
+        await this.prisma.brigade.delete({
+            where: { id: brigadeId }
+        });
+        return { success: true };
+    }
+    async updateBrigade(data) {
+        const { ownerId, brigadeId, name, invites, removeMemberIds } = data;
+        const brigade = await this.prisma.brigade.findFirst({
+            where: { id: brigadeId, ownerId }
+        });
+        if (!brigade) {
+            return { error: 'Brigade not found or unauthorized' };
+        }
+        if (!name || name.trim() === '') {
+            return { error: 'Brigade name is required' };
+        }
+        const uniqueInvites = [...new Set(invites)];
+        const invalidInvites = [];
+        const validUserIds = [];
+        for (const invite of uniqueInvites) {
+            const user = await this.prisma.user.findFirst({
+                where: {
+                    OR: [{ email: invite }, { phone: invite }],
+                },
+            });
+            if (!user || !user.roles.includes('MASTER')) {
+                invalidInvites.push(invite);
+            }
+            else if (user.id === ownerId) {
+                invalidInvites.push(invite + " (cannot invite yourself)");
+            }
+            else {
+                const existingMember = await this.prisma.brigadeMember.findFirst({
+                    where: { brigadeId, userId: user.id }
+                });
+                if (!existingMember) {
+                    validUserIds.push(user.id);
+                }
+            }
+        }
+        if (invalidInvites.length > 0) {
+            return { error: `Invalid invites: The following users were not found, are not masters, or are invalid: ${invalidInvites.join(', ')}` };
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.brigade.update({
+                where: { id: brigadeId },
+                data: { name }
+            });
+            if (removeMemberIds && removeMemberIds.length > 0) {
+                await tx.brigadeMember.deleteMany({
+                    where: {
+                        id: { in: removeMemberIds },
+                        brigadeId: brigadeId
+                    }
+                });
+            }
+            if (validUserIds.length > 0) {
+                await tx.brigadeMember.createMany({
+                    data: validUserIds.map((userId) => ({
+                        brigadeId,
+                        userId,
+                        status: 'PENDING',
+                    }))
+                });
+            }
+        });
+        for (const userId of validUserIds) {
+            this.notificationsService.emit({ cmd: 'create-notification' }, {
+                userId,
+                type: client_1.NotificationType.BRIGADE_INVITE,
+                title: 'Brigade Invitation',
+                message: `You have been invited to join the brigade "${name}".`,
+                metadata: { brigadeId },
+            });
+        }
+        return this.prisma.brigade.findUnique({
+            where: { id: brigadeId },
+            include: {
+                members: {
+                    include: {
+                        user: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } }
+                    }
+                }
+            }
+        });
+    }
+    async acceptBrigadeInvite(data) {
+        const { userId, brigadeId } = data;
+        const member = await this.prisma.brigadeMember.findFirst({
+            where: { userId, brigadeId, status: 'PENDING' },
+        });
+        if (!member) {
+            return { error: 'Invite not found or already accepted/rejected' };
+        }
+        await this.prisma.brigadeMember.update({
+            where: { id: member.id },
+            data: { status: 'ACCEPTED' },
+        });
+        return { success: true };
+    }
+    async rejectBrigadeInvite(data) {
+        const { userId, brigadeId } = data;
+        const member = await this.prisma.brigadeMember.findFirst({
+            where: { userId, brigadeId, status: 'PENDING' },
+        });
+        if (!member) {
+            return { error: 'Invite not found or already accepted/rejected' };
+        }
+        await this.prisma.brigadeMember.update({
+            where: { id: member.id },
+            data: { status: 'REJECTED' },
+        });
+        return { success: true };
     }
 };
 exports.MastersService = MastersService;
 exports.MastersService = MastersService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [typeof (_a = typeof prisma_service_1.PrismaService !== "undefined" && prisma_service_1.PrismaService) === "function" ? _a : Object])
+    __param(1, (0, common_1.Inject)('NOTIFICATIONS_SERVICE')),
+    __metadata("design:paramtypes", [typeof (_a = typeof prisma_service_1.PrismaService !== "undefined" && prisma_service_1.PrismaService) === "function" ? _a : Object, typeof (_b = typeof microservices_1.ClientProxy !== "undefined" && microservices_1.ClientProxy) === "function" ? _b : Object])
 ], MastersService);
 
 
@@ -307,7 +585,8 @@ const pg_1 = __webpack_require__(9);
 const adapter_pg_1 = __webpack_require__(10);
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        const connectionString = process.env.DATABASE_URL || 'postgresql://root:password@postgres:5432/shinapp?schema=public';
+        const connectionString = process.env.DATABASE_URL ||
+            'postgresql://root:password@postgres:5432/shinapp?schema=public';
         const pool = new pg_1.Pool({ connectionString });
         const adapter = new adapter_pg_1.PrismaPg(pool);
         super({ adapter });

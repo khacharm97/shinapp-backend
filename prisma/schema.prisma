@@ -30,6 +30,7 @@ model User {
   portfolios Portfolio[]
   ownedBrigades Brigade[] @relation("BrigadeOwner")
   brigadeMemberships BrigadeMember[] @relation("BrigadeMembership")
+  notifications Notification[] @relation("UserNotifications")
 
   @@unique([email, phone]) // Allows efficient querying for either
 }
@@ -127,4 +128,23 @@ model BrigadeMember {
   updatedAt   DateTime @updatedAt
 
   @@unique([brigadeId, userId])
+}
+
+enum NotificationType {
+  BRIGADE_INVITE
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

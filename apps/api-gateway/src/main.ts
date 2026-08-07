@@ -25,6 +25,14 @@ async function bootstrap() {
   const { join } = require('path');
   app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
+  app.connectMicroservice({
+    transport: require('@nestjs/microservices').Transport.TCP,
+    options: {
+      host: '0.0.0.0',
+      port: 3005,
+    },
+  });
+  await app.startAllMicroservices();
   await app.listen(process.env.port ?? 3000);
 }
 bootstrap();

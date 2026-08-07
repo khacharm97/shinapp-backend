@@ -95,4 +95,14 @@ export class MastersController {
   updateBrigade(@Payload() data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
     return this.mastersService.updateBrigade(data);
   }
+
+  @MessagePattern({ cmd: 'accept-brigade-invite' })
+  acceptBrigadeInvite(@Payload() data: { userId: string; brigadeId: string }) {
+    return this.mastersService.acceptBrigadeInvite(data);
+  }
+
+  @MessagePattern({ cmd: 'reject-brigade-invite' })
+  rejectBrigadeInvite(@Payload() data: { userId: string; brigadeId: string }) {
+    return this.mastersService.rejectBrigadeInvite(data);
+  }
 }

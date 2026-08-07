@@ -245,13 +245,15 @@ let AuthService = class AuthService {
         const hashedPassword = await bcrypt.hash(data.password, 10);
         const mappedRoles = data.role === 'master' ? ['MASTER'] : ['USER'];
         const isEmail = identifier.includes('@');
-        const user = await this.usersService.create({
+        const user = await this.usersService
+            .create({
             name: data.name,
             email: data.email || null,
             phone: data.phone || null,
             password: hashedPassword,
             roles: mappedRoles,
-        }).catch((e) => {
+        })
+            .catch((e) => {
             if (e.code === 'P2002') {
                 throw new common_1.ConflictException('auth_error_user_exists');
             }
@@ -282,8 +284,8 @@ let AuthService = class AuthService {
                 email: user.email,
                 phone: user.phone,
                 roles: user.roles,
-                userInfo: user.userInfo || null
-            }
+                userInfo: user.userInfo || null,
+            },
         };
     }
     async googleLogin(profile) {
@@ -294,7 +296,9 @@ let AuthService = class AuthService {
         if (!user && profile.email) {
             user = await this.usersService.findByIdentifier(profile.email);
             if (user) {
-                user = await this.usersService.update(user.id, { googleId: profile.googleId });
+                user = await this.usersService.update(user.id, {
+                    googleId: profile.googleId,
+                });
             }
         }
         const mappedRoles = profile.role === 'master' ? ['MASTER'] : ['USER'];
@@ -302,13 +306,15 @@ let AuthService = class AuthService {
             user = await this.usersService.create({
                 googleId: profile.googleId,
                 email: profile.email,
-                name: profile.firstName ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Google User',
+                name: profile.firstName
+                    ? `${profile.firstName} ${profile.lastName || ''}`.trim()
+                    : 'Google User',
                 roles: mappedRoles,
             });
         }
         else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
             user = await this.usersService.update(user.id, {
-                roles: [...user.roles, 'MASTER']
+                roles: [...user.roles, 'MASTER'],
             });
         }
         return this.login(user);
@@ -403,9 +409,9 @@ let UsersService = class UsersService {
                 userInfo: true,
                 portfolios: {
                     orderBy: {
-                        order: 'asc'
-                    }
-                }
+                        order: 'asc',
+                    },
+                },
             },
         });
         console.log('getUserProfile result:', user);
@@ -416,17 +422,17 @@ let UsersService = class UsersService {
             data: {
                 userId,
                 ...data,
-            }
+            },
         });
         return this.getUserProfile(userId);
     }
     async deletePortfolio(userId, portfolioId) {
         const portfolio = await this.prisma.portfolio.findFirst({
-            where: { id: portfolioId, userId }
+            where: { id: portfolioId, userId },
         });
         if (portfolio) {
             await this.prisma.portfolio.delete({
-                where: { id: portfolioId }
+                where: { id: portfolioId },
             });
         }
         return this.getUserProfile(userId);
@@ -442,13 +448,17 @@ let UsersService = class UsersService {
         const { name, phone, email, ...userInfoData } = data;
         if (userInfoData.skills && Array.isArray(userInfoData.skills)) {
             const existingSkills = await this.prisma.skill.findMany({
-                where: { key: { in: userInfoData.skills } }
+                where: { key: { in: userInfoData.skills } },
             });
-            const existingKeys = new Set(existingSkills.map(s => s.key));
+            const existingKeys = new Set(existingSkills.map((s) => s.key));
             const newSkillsToCreate = userInfoData.skills.filter((skillKey) => !existingKeys.has(skillKey));
             for (const newSkillName of newSkillsToCreate) {
-                const generatedKey = newSkillName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                const check = await this.prisma.skill.findUnique({ where: { key: generatedKey } });
+                const generatedKey = newSkillName
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '_');
+                const check = await this.prisma.skill.findUnique({
+                    where: { key: generatedKey },
+                });
                 if (!check) {
                     await this.prisma.skill.create({
                         data: {
@@ -458,7 +468,7 @@ let UsersService = class UsersService {
                             nameRu: newSkillName,
                             nameFa: newSkillName,
                             approved: false,
-                        }
+                        },
                     });
                 }
                 const index = userInfoData.skills.indexOf(newSkillName);
@@ -555,7 +565,8 @@ const pg_1 = __webpack_require__(9);
 const adapter_pg_1 = __webpack_require__(10);
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
-        const connectionString = process.env.DATABASE_URL || 'postgresql://root:password@postgres:5432/shinapp?schema=public';
+        const connectionString = process.env.DATABASE_URL ||
+            'postgresql://root:password@postgres:5432/shinapp?schema=public';
         const pool = new pg_1.Pool({ connectionString });
         const adapter = new adapter_pg_1.PrismaPg(pool);
         super({ adapter });

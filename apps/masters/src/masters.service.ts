@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
+import { ClientProxy } from '@nestjs/microservices';
+import { NotificationType } from '@prisma/client';
 
 @Injectable()
 export class MastersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('NOTIFICATIONS_SERVICE') private readonly notificationsService: ClientProxy,
+  ) {}
 
   async getMasters(
     page: number = 1,
@@ -213,6 +218,19 @@ export class MastersService {
         }
       }
     });
+    // Create notifications for invited users
+    for (const userId of validUserIds) {
+      this.notificationsService.emit(
+        { cmd: 'create-notification' },
+        {
+          userId,
+          type: NotificationType.BRIGADE_INVITE,
+          title: 'Brigade Invitation',
+          message: `You have been invited to join the brigade "${brigade.name}".`,
+          metadata: { brigadeId: brigade.id },
+        }
+      );
+    }
 
     return brigade;
   }
@@ -319,6 +337,19 @@ export class MastersService {
       }
     });
 
+    for (const userId of validUserIds) {
+      this.notificationsService.emit(
+        { cmd: 'create-notification' },
+        {
+          userId,
+          type: NotificationType.BRIGADE_INVITE,
+          title: 'Brigade Invitation',
+          message: `You have been invited to join the brigade "${name}".`,
+          metadata: { brigadeId },
+        }
+      );
+    }
+
     return this.prisma.brigade.findUnique({
       where: { id: brigadeId },
       include: {
@@ -329,5 +360,99 @@ export class MastersService {
         }
       }
     });
+  }
+
+  async acceptBrigadeInvite(data: { userId: string; brigadeId: string }) {
+    const { userId, brigadeId } = data;
+    const member = await this.prisma.brigadeMember.findFirst({
+      where: { userId, brigadeId, status: 'PENDING' },
+    });
+
+    if (!member) {
+      return { error: 'Invite not found or already accepted/rejected' };
+    }
+
+    await this.prisma.brigadeMember.update({
+      where: { id: member.id },
+      data: { status: 'ACCEPTED' },
+    });
+
+    const brigade = await this.prisma.brigade.findUnique({
+      where: { id: brigadeId },
+      include: { owner: true }
+    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (brigade && user) {
+      this.notificationsService.emit(
+        { cmd: 'create-notification' },
+        {
+          userId: brigade.ownerId,
+          type: NotificationType.SYSTEM,
+          title: 'Invite Accepted',
+          message: `${user.name || user.email || user.phone} has accepted your invite to join "${brigade.name}".`,
+          metadata: { brigadeId: brigade.id, memberId: userId },
+        }
+      );
+
+      // Emit WS event directly to API Gateway to invalidate My Brigades cache
+      this.notificationsService.emit(
+        { cmd: 'send-ws-event' },
+        {
+          userId: brigade.ownerId,
+          event: 'brigade_updated',
+          payload: { brigadeId: brigade.id }
+        }
+      );
+    }
+
+    return { success: true };
+  }
+
+  async rejectBrigadeInvite(data: { userId: string; brigadeId: string }) {
+    const { userId, brigadeId } = data;
+    const member = await this.prisma.brigadeMember.findFirst({
+      where: { userId, brigadeId, status: 'PENDING' },
+    });
+
+    if (!member) {
+      return { error: 'Invite not found or already accepted/rejected' };
+    }
+
+    await this.prisma.brigadeMember.update({
+      where: { id: member.id },
+      data: { status: 'REJECTED' },
+    });
+
+    const brigade = await this.prisma.brigade.findUnique({
+      where: { id: brigadeId },
+      include: { owner: true }
+    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (brigade && user) {
+      this.notificationsService.emit(
+        { cmd: 'create-notification' },
+        {
+          userId: brigade.ownerId,
+          type: NotificationType.SYSTEM,
+          title: 'Invite Rejected',
+          message: `${user.name || user.email || user.phone} has rejected your invite to join "${brigade.name}".`,
+          metadata: { brigadeId: brigade.id, memberId: userId },
+        }
+      );
+
+      // Emit WS event directly to API Gateway to invalidate My Brigades cache
+      this.notificationsService.emit(
+        { cmd: 'send-ws-event' },
+        {
+          userId: brigade.ownerId,
+          event: 'brigade_updated',
+          payload: { brigadeId: brigade.id }
+        }
+      );
+    }
+
+    return { success: true };
   }
 }

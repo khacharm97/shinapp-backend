@@ -8,6 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './common/strategies/google.strategy';
 import { AdminGatewayController } from './admin.controller';
 import { ContactRequestsController } from './contact-requests.controller';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Module({
   imports: [
@@ -36,6 +37,14 @@ import { ContactRequestsController } from './contact-requests.controller';
           port: 3003,
         },
       },
+      {
+        name: 'NOTIFICATIONS_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.NOTIFICATIONS_HOST || 'localhost',
+          port: 3004,
+        },
+      },
     ]),
     PassportModule,
     JwtModule.register({
@@ -48,6 +57,11 @@ import { ContactRequestsController } from './contact-requests.controller';
     AdminGatewayController,
     ContactRequestsController,
   ],
-  providers: [ApiGatewayService, JwtStrategy, GoogleStrategy],
+  providers: [
+    ApiGatewayService, 
+    JwtStrategy, 
+    GoogleStrategy,
+    NotificationsGateway,
+  ],
 })
 export class ApiGatewayModule {}

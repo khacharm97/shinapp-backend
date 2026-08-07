@@ -16,7 +16,7 @@ import {
   UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, MessagePattern, Payload } from '@nestjs/microservices';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
@@ -29,12 +29,15 @@ import { Role } from '@prisma/client';
 import { ApiExcludeEndpoint, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swagger';
 
 import { GoogleAuthGuard } from './common/guards/google-auth.guard';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Controller('auth')
 export class ApiGatewayController {
   constructor(
     @Inject('AUTH_SERVICE') private readonly authService: ClientProxy,
     @Inject('MASTERS_SERVICE') private readonly mastersService: ClientProxy,
+    @Inject('NOTIFICATIONS_SERVICE') private readonly notificationsService: ClientProxy,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   @Get('google')
@@ -413,10 +416,77 @@ export class ApiGatewayController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.USER)
+  @Post('profile/brigade/invite/:brigadeId/accept')
+  @ApiOperation({ summary: 'Accept a brigade invite' })
+  async acceptBrigadeInvite(@Request() req, @Param('brigadeId') brigadeId: string) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'accept-brigade-invite' },
+        { userId: req.user.id, brigadeId }
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.USER)
+  @Post('profile/brigade/invite/:brigadeId/reject')
+  @ApiOperation({ summary: 'Reject a brigade invite' })
+  async rejectBrigadeInvite(@Request() req, @Param('brigadeId') brigadeId: string) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'reject-brigade-invite' },
+        { userId: req.user.id, brigadeId }
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('notifications')
+  @ApiOperation({ summary: 'Get user notifications' })
+  async getNotifications(@Request() req) {
+    return firstValueFrom(
+      this.notificationsService.send({ cmd: 'get-notifications' }, { userId: req.user.id }),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('notifications/:id/read')
+  @ApiOperation({ summary: 'Mark a notification as read' })
+  async markNotificationRead(@Request() req, @Param('id') id: string) {
+    return firstValueFrom(
+      this.notificationsService.send(
+        { cmd: 'mark-notification-read' },
+        { userId: req.user.id, notificationId: id }
+      ),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiExcludeEndpoint()
   @Get('admin-only')
   getAdminData(@Request() req) {
     return { message: 'Welcome to the admin area!', user: req.user };
+  }
+
+  @MessagePattern({ cmd: 'send-ws-notification' })
+  handleSendWsNotification(@Payload() data: { userId: string; notification: any }) {
+    this.notificationsGateway.sendNotificationToUser(data.userId, data.notification);
+    return { success: true };
+  }
+
+  @MessagePattern({ cmd: 'send-ws-event' })
+  handleSendWsEvent(@Payload() data: { userId: string; event: string; payload: any }) {
+    this.notificationsGateway.sendEventToUser(data.userId, data.event, data.payload);
+    return { success: true };
   }
 }
