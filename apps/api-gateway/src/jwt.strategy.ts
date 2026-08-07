@@ -17,7 +17,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const result = await firstValueFrom(this.authClient.send({ cmd: 'auth.check_blocked' }, { id: payload.sub }));
+    const result = await firstValueFrom(
+      this.authClient.send({ cmd: 'auth.check_blocked' }, { id: payload.sub }),
+    );
     if (result && result.isBlocked) {
       throw new ForbiddenException('auth_error_user_blocked');
     }

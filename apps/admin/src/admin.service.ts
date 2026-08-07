@@ -42,7 +42,7 @@ export class AdminService {
         email: user.email,
         roles: user.roles,
         name: user.name,
-      }
+      },
     };
   }
 
@@ -67,7 +67,7 @@ export class AdminService {
       include: {
         userInfo: true,
         portfolios: true,
-      }
+      },
     });
   }
 
@@ -114,7 +114,7 @@ export class AdminService {
   async contactRequestExists(email: string) {
     const record = await this.prisma.contactRequest.findFirst({
       where: { email },
-      select: { id: true, contact: true }
+      select: { id: true, contact: true },
     });
     return record;
   }
@@ -122,7 +122,7 @@ export class AdminService {
   async markContactRequestAsRead(id: string) {
     return this.prisma.contactRequest.update({
       where: { id },
-      data: { isRead: true }
+      data: { isRead: true },
     });
   }
 
@@ -132,7 +132,15 @@ export class AdminService {
     });
   }
 
-  async createSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; nameFa: string; icon?: string; approved: boolean }) {
+  async createSkill(data: {
+    key: string;
+    nameEn: string;
+    nameAm: string;
+    nameRu: string;
+    nameFa: string;
+    icon?: string;
+    approved: boolean;
+  }) {
     return this.prisma.skill.create({
       data,
     });

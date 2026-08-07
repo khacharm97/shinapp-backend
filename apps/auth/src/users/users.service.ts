@@ -31,7 +31,7 @@ export class UsersService {
   }
 
   async create(data: Prisma.UserCreateInput) {
-    return this.prisma.user.create({ 
+    return this.prisma.user.create({
       data,
       include: { userInfo: true },
     });
@@ -53,33 +53,41 @@ export class UsersService {
         userInfo: true,
         portfolios: {
           orderBy: {
-            order: 'asc'
-          }
-        }
+            order: 'asc',
+          },
+        },
       },
     });
     console.log('getUserProfile result:', user);
     return user;
   }
 
-  async createPortfolio(userId: string, data: { title: string, description?: string, imageUrls: string[], order?: number }) {
+  async createPortfolio(
+    userId: string,
+    data: {
+      title: string;
+      description?: string;
+      imageUrls: string[];
+      order?: number;
+    },
+  ) {
     await this.prisma.portfolio.create({
       data: {
         userId,
         ...data,
-      }
+      },
     });
     return this.getUserProfile(userId);
   }
 
   async deletePortfolio(userId: string, portfolioId: string) {
     const portfolio = await this.prisma.portfolio.findFirst({
-      where: { id: portfolioId, userId }
+      where: { id: portfolioId, userId },
     });
-    
+
     if (portfolio) {
       await this.prisma.portfolio.delete({
-        where: { id: portfolioId }
+        where: { id: portfolioId },
       });
     }
     return this.getUserProfile(userId);
@@ -99,17 +107,23 @@ export class UsersService {
     // Handle custom skills
     if (userInfoData.skills && Array.isArray(userInfoData.skills)) {
       const existingSkills = await this.prisma.skill.findMany({
-        where: { key: { in: userInfoData.skills } }
+        where: { key: { in: userInfoData.skills } },
       });
-      const existingKeys = new Set(existingSkills.map(s => s.key));
+      const existingKeys = new Set(existingSkills.map((s) => s.key));
 
-      const newSkillsToCreate = userInfoData.skills.filter((skillKey: string) => !existingKeys.has(skillKey));
+      const newSkillsToCreate = userInfoData.skills.filter(
+        (skillKey: string) => !existingKeys.has(skillKey),
+      );
       for (const newSkillName of newSkillsToCreate) {
         // Generate a slug-like key
-        const generatedKey = newSkillName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-        
+        const generatedKey = newSkillName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '_');
+
         // Ensure it doesn't already exist by key (e.g. user typed a key accidentally)
-        const check = await this.prisma.skill.findUnique({ where: { key: generatedKey }});
+        const check = await this.prisma.skill.findUnique({
+          where: { key: generatedKey },
+        });
         if (!check) {
           await this.prisma.skill.create({
             data: {
@@ -119,19 +133,21 @@ export class UsersService {
               nameRu: newSkillName,
               nameFa: newSkillName,
               approved: false,
-            }
+            },
           });
         }
-        
+
         // Replace the user's raw input with the generated key in their skills array
         const index = userInfoData.skills.indexOf(newSkillName);
         if (index !== -1) {
           userInfoData.skills[index] = generatedKey;
         }
       }
-      
+
       // Filter out empty keys that might result from weird characters
-      userInfoData.skills = userInfoData.skills.filter((k: string) => k.length > 0);
+      userInfoData.skills = userInfoData.skills.filter(
+        (k: string) => k.length > 0,
+      );
     }
 
     // Update User core fields if provided
@@ -165,7 +181,7 @@ export class UsersService {
       where: { id: userId },
       data: { avatarUrl },
     });
-    
+
     await this.checkVerificationStatus(userId);
     return this.getUserProfile(userId);
   }
@@ -178,7 +194,7 @@ export class UsersService {
 
     if (!user) return;
 
-    const isVerified = 
+    const isVerified =
       !!user.avatarUrl &&
       !!user.phone &&
       !!user.email &&
@@ -188,7 +204,7 @@ export class UsersService {
       (user.userInfo?.skills?.length || 0) >= 1;
 
     const currentlyVerified = user.verifiedAt !== null;
-    
+
     if (isVerified && !currentlyVerified) {
       await this.prisma.user.update({
         where: { id: userId },

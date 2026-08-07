@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ApiGatewayModule } from './api-gateway.module';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);
@@ -8,7 +9,17 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
-  
+
+  const config = new DocumentBuilder()
+    .setTitle('API Gateway')
+    .setDescription('The API Gateway documentation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, documentFactory);
+
   // Serve uploads directory
   const express = require('express');
   const { join } = require('path');

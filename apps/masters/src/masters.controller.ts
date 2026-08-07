@@ -7,7 +7,18 @@ export class MastersController {
   constructor(private readonly mastersService: MastersService) {}
 
   @MessagePattern({ cmd: 'get-masters' })
-  getMasters(@Payload() data: { page?: number; limit?: number; search?: string; regionId?: string; cityId?: string; topRated?: boolean; availableNow?: boolean }) {
+  getMasters(
+    @Payload()
+    data: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      regionId?: string;
+      cityId?: string;
+      topRated?: boolean;
+      availableNow?: boolean;
+    },
+  ) {
     const filters = {
       search: data.search,
       regionId: data.regionId,
@@ -19,7 +30,18 @@ export class MastersController {
   }
 
   @MessagePattern({ cmd: 'global-search' })
-  globalSearch(@Payload() data: { page?: number; limit?: number; search?: string; regionId?: string; cityId?: string; topRated?: boolean; availableNow?: boolean }) {
+  globalSearch(
+    @Payload()
+    data: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      regionId?: string;
+      cityId?: string;
+      topRated?: boolean;
+      availableNow?: boolean;
+    },
+  ) {
     const filters = {
       search: data.search,
       regionId: data.regionId,
@@ -41,7 +63,16 @@ export class MastersController {
   }
 
   @MessagePattern({ cmd: 'suggest-skill' })
-  suggestSkill(@Payload() data: { key: string; nameEn: string; nameAm: string; nameRu: string; nameFa: string }) {
+  suggestSkill(
+    @Payload()
+    data: {
+      key: string;
+      nameEn: string;
+      nameAm: string;
+      nameRu: string;
+      nameFa: string;
+    },
+  ) {
     return this.mastersService.suggestSkill(data);
   }
 }

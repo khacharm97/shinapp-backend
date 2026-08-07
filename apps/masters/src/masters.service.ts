@@ -8,7 +8,13 @@ export class MastersService {
   async getMasters(
     page: number = 1,
     limit: number = 10,
-    filters?: { search?: string; regionId?: string; cityId?: string; topRated?: boolean; availableNow?: boolean }
+    filters?: {
+      search?: string;
+      regionId?: string;
+      cityId?: string;
+      topRated?: boolean;
+      availableNow?: boolean;
+    },
   ) {
     const skip = (page - 1) * limit;
 
@@ -23,14 +29,18 @@ export class MastersService {
     };
 
     const AND: any[] = [];
-    if (filters?.regionId) AND.push({ userInfo: { is: { regionId: filters.regionId } } });
-    if (filters?.cityId) AND.push({ userInfo: { is: { cityId: filters.cityId } } });
-    if (filters?.topRated) AND.push({ userInfo: { is: { topRated: filters.topRated } } });
-    if (filters?.availableNow) AND.push({ userInfo: { is: { availableNow: filters.availableNow } } });
+    if (filters?.regionId)
+      AND.push({ userInfo: { is: { regionId: filters.regionId } } });
+    if (filters?.cityId)
+      AND.push({ userInfo: { is: { cityId: filters.cityId } } });
+    if (filters?.topRated)
+      AND.push({ userInfo: { is: { topRated: filters.topRated } } });
+    if (filters?.availableNow)
+      AND.push({ userInfo: { is: { availableNow: filters.availableNow } } });
 
     if (filters?.search) {
       const searchStr = filters.search;
-      
+
       const matchingSkills = await this.prisma.skill.findMany({
         where: {
           approved: true,
@@ -44,12 +54,14 @@ export class MastersService {
         },
       });
 
-      const matchingSkillKeys = matchingSkills.map(s => s.key);
+      const matchingSkillKeys = matchingSkills.map((s) => s.key);
 
       AND.push({
         OR: [
           { name: { contains: filters.search, mode: 'insensitive' } },
-          matchingSkillKeys.length > 0 ? { userInfo: { is: { skills: { hasSome: matchingSkillKeys } } } } : { id: 'no-match-skill' }
+          matchingSkillKeys.length > 0
+            ? { userInfo: { is: { skills: { hasSome: matchingSkillKeys } } } }
+            : { id: 'no-match-skill' },
         ],
       });
     }
@@ -85,12 +97,18 @@ export class MastersService {
   async globalSearch(
     page: number = 1,
     limit: number = 10,
-    filters?: { search?: string; regionId?: string; cityId?: string; topRated?: boolean; availableNow?: boolean }
+    filters?: {
+      search?: string;
+      regionId?: string;
+      cityId?: string;
+      topRated?: boolean;
+      availableNow?: boolean;
+    },
   ) {
     const mastersData = await this.getMasters(page, limit, filters);
-    
+
     // Future: add queries for techniques, calculators, etc. here
-    
+
     return {
       masters: mastersData,
     };
@@ -104,11 +122,11 @@ export class MastersService {
           has: 'MASTER',
         },
       },
-      include: { 
+      include: {
         userInfo: true,
         portfolios: {
-          orderBy: { order: 'asc' }
-        }
+          orderBy: { order: 'asc' },
+        },
       },
     });
 
@@ -127,12 +145,18 @@ export class MastersService {
     });
   }
 
-  async suggestSkill(data: { key: string; nameEn: string; nameAm: string; nameRu: string; nameFa: string }) {
+  async suggestSkill(data: {
+    key: string;
+    nameEn: string;
+    nameAm: string;
+    nameRu: string;
+    nameFa: string;
+  }) {
     return this.prisma.skill.create({
       data: {
         ...data,
         approved: false,
-      }
+      },
     });
   }
 }

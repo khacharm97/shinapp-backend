@@ -22,14 +22,14 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ApiGatewayModule = void 0;
 const common_1 = __webpack_require__(3);
 const api_gateway_controller_1 = __webpack_require__(4);
-const api_gateway_service_1 = __webpack_require__(17);
+const api_gateway_service_1 = __webpack_require__(18);
 const microservices_1 = __webpack_require__(5);
-const jwt_1 = __webpack_require__(18);
+const jwt_1 = __webpack_require__(19);
 const passport_1 = __webpack_require__(12);
-const jwt_strategy_1 = __webpack_require__(19);
-const google_strategy_1 = __webpack_require__(21);
-const admin_controller_1 = __webpack_require__(23);
-const contact_requests_controller_1 = __webpack_require__(24);
+const jwt_strategy_1 = __webpack_require__(20);
+const google_strategy_1 = __webpack_require__(22);
+const admin_controller_1 = __webpack_require__(24);
+const contact_requests_controller_1 = __webpack_require__(25);
 let ApiGatewayModule = class ApiGatewayModule {
 };
 exports.ApiGatewayModule = ApiGatewayModule;
@@ -144,7 +144,8 @@ const jwt_auth_guard_1 = __webpack_require__(11);
 const roles_guard_1 = __webpack_require__(13);
 const roles_decorator_1 = __webpack_require__(14);
 const client_1 = __webpack_require__(15);
-const google_auth_guard_1 = __webpack_require__(16);
+const swagger_1 = __webpack_require__(16);
+const google_auth_guard_1 = __webpack_require__(17);
 let ApiGatewayController = class ApiGatewayController {
     authService;
     mastersService;
@@ -422,6 +423,7 @@ __decorate([
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(client_1.Role.ADMIN),
+    (0, swagger_1.ApiExcludeEndpoint)(),
     (0, common_1.Get)('admin-only'),
     __param(0, (0, common_1.Request)()),
     __metadata("design:type", Function),
@@ -566,6 +568,12 @@ module.exports = require("@prisma/client");
 
 /***/ }),
 /* 16 */
+/***/ ((module) => {
+
+module.exports = require("@nestjs/swagger");
+
+/***/ }),
+/* 17 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -594,7 +602,7 @@ exports.GoogleAuthGuard = GoogleAuthGuard = __decorate([
 
 
 /***/ }),
-/* 17 */
+/* 18 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -619,13 +627,13 @@ exports.ApiGatewayService = ApiGatewayService = __decorate([
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ ((module) => {
 
 module.exports = require("@nestjs/jwt");
 
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -644,7 +652,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.JwtStrategy = void 0;
-const passport_jwt_1 = __webpack_require__(20);
+const passport_jwt_1 = __webpack_require__(21);
 const passport_1 = __webpack_require__(12);
 const common_1 = __webpack_require__(3);
 const microservices_1 = __webpack_require__(5);
@@ -676,13 +684,13 @@ exports.JwtStrategy = JwtStrategy = __decorate([
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ ((module) => {
 
 module.exports = require("passport-jwt");
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -698,7 +706,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GoogleStrategy = void 0;
 const passport_1 = __webpack_require__(12);
-const passport_google_oauth20_1 = __webpack_require__(22);
+const passport_google_oauth20_1 = __webpack_require__(23);
 const common_1 = __webpack_require__(3);
 let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrategy)(passport_google_oauth20_1.Strategy, 'google') {
     constructor() {
@@ -730,13 +738,13 @@ exports.GoogleStrategy = GoogleStrategy = __decorate([
 
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ ((module) => {
 
 module.exports = require("passport-google-oauth20");
 
 /***/ }),
-/* 23 */
+/* 24 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -759,6 +767,7 @@ const common_1 = __webpack_require__(3);
 const microservices_1 = __webpack_require__(5);
 const rxjs_1 = __webpack_require__(10);
 const jwt_auth_guard_1 = __webpack_require__(11);
+const swagger_1 = __webpack_require__(16);
 let AdminGatewayController = class AdminGatewayController {
     adminClient;
     constructor(adminClient) {
@@ -935,6 +944,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminGatewayController.prototype, "deleteSkill", null);
 exports.AdminGatewayController = AdminGatewayController = __decorate([
+    (0, swagger_1.ApiExcludeController)(),
     (0, common_1.Controller)('admin'),
     __param(0, (0, common_1.Inject)('ADMIN_SERVICE')),
     __metadata("design:paramtypes", [typeof (_a = typeof microservices_1.ClientProxy !== "undefined" && microservices_1.ClientProxy) === "function" ? _a : Object])
@@ -942,7 +952,7 @@ exports.AdminGatewayController = AdminGatewayController = __decorate([
 
 
 /***/ }),
-/* 24 */
+/* 25 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -997,7 +1007,7 @@ exports.ContactRequestsController = void 0;
 const common_1 = __webpack_require__(3);
 const microservices_1 = __webpack_require__(5);
 const rxjs_1 = __webpack_require__(10);
-const nodemailer = __importStar(__webpack_require__(25));
+const nodemailer = __importStar(__webpack_require__(26));
 let ContactRequestsController = class ContactRequestsController {
     adminService;
     transporter;
@@ -1143,13 +1153,13 @@ exports.ContactRequestsController = ContactRequestsController = __decorate([
 
 
 /***/ }),
-/* 25 */
+/* 26 */
 /***/ ((module) => {
 
 module.exports = require("nodemailer");
 
 /***/ }),
-/* 26 */
+/* 27 */
 /***/ ((module) => {
 
 module.exports = require("express");
@@ -1190,6 +1200,7 @@ var exports = __webpack_exports__;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __webpack_require__(1);
 const api_gateway_module_1 = __webpack_require__(2);
+const swagger_1 = __webpack_require__(16);
 async function bootstrap() {
     const app = await core_1.NestFactory.create(api_gateway_module_1.ApiGatewayModule);
     app.enableCors({
@@ -1197,7 +1208,15 @@ async function bootstrap() {
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
     });
-    const express = __webpack_require__(26);
+    const config = new swagger_1.DocumentBuilder()
+        .setTitle('API Gateway')
+        .setDescription('The API Gateway documentation')
+        .setVersion('1.0')
+        .addBearerAuth()
+        .build();
+    const documentFactory = () => swagger_1.SwaggerModule.createDocument(app, config);
+    swagger_1.SwaggerModule.setup('api/docs', app, documentFactory);
+    const express = __webpack_require__(27);
     const { join } = __webpack_require__(8);
     app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
     await app.listen(process.env.port ?? 3000);

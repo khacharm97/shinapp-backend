@@ -4,7 +4,7 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 
 @Controller()
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   @MessagePattern({ cmd: 'register' })
   async register(@Payload() data: any) {
@@ -27,12 +27,12 @@ export class AuthController {
   }
 
   @MessagePattern({ cmd: 'update-profile' })
-  async updateProfile(@Payload() data: { userId: string, profileData: any }) {
+  async updateProfile(@Payload() data: { userId: string; profileData: any }) {
     return this.authService.updateProfile(data.userId, data.profileData);
   }
 
   @MessagePattern({ cmd: 'update-avatar' })
-  async updateAvatar(@Payload() data: { userId: string, avatarUrl: string }) {
+  async updateAvatar(@Payload() data: { userId: string; avatarUrl: string }) {
     return this.authService.updateAvatar(data.userId, data.avatarUrl);
   }
 
@@ -43,12 +43,16 @@ export class AuthController {
   }
 
   @MessagePattern({ cmd: 'create-portfolio' })
-  async createPortfolio(@Payload() data: { userId: string, portfolioData: any }) {
+  async createPortfolio(
+    @Payload() data: { userId: string; portfolioData: any },
+  ) {
     return this.authService.createPortfolio(data.userId, data.portfolioData);
   }
 
   @MessagePattern({ cmd: 'delete-portfolio' })
-  async deletePortfolio(@Payload() data: { userId: string, portfolioId: string }) {
+  async deletePortfolio(
+    @Payload() data: { userId: string; portfolioId: string },
+  ) {
     return this.authService.deletePortfolio(data.userId, data.portfolioId);
   }
 }

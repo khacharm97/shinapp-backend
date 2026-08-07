@@ -456,6 +456,7 @@ let UsersService = class UsersService {
                             nameEn: newSkillName,
                             nameAm: newSkillName,
                             nameRu: newSkillName,
+                            nameFa: newSkillName,
                             approved: false,
                         }
                     });

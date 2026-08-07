@@ -43,7 +43,11 @@ import { ContactRequestsController } from './contact-requests.controller';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  controllers: [ApiGatewayController, AdminGatewayController, ContactRequestsController],
+  controllers: [
+    ApiGatewayController,
+    AdminGatewayController,
+    ContactRequestsController,
+  ],
   providers: [ApiGatewayService, JwtStrategy, GoogleStrategy],
 })
 export class ApiGatewayModule {}

@@ -74,7 +74,10 @@ export class AdminController {
   @MessagePattern({ cmd: 'admin.update_contact_request' })
   async updateContactRequest(data: { email: string; payload: any }) {
     try {
-      return await this.adminService.updateContactRequest(data.email, data.payload);
+      return await this.adminService.updateContactRequest(
+        data.email,
+        data.payload,
+      );
     } catch (e) {
       return { error: e.message || 'Failed to update contact request' };
     }

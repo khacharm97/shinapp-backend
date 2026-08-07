@@ -4,12 +4,17 @@ import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgresql://root:password@postgres:5432/shinapp?schema=public';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgresql://root:password@postgres:5432/shinapp?schema=public';
     const pool = new Pool({ connectionString });
     const adapter = new PrismaPg(pool);
-    super({ adapter } as any);
+    super({ adapter });
   }
 
   async onModuleInit() {

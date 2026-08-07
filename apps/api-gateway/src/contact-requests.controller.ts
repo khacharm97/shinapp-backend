@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Put, Body, Param, Inject, Query, Res, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Inject,
+  Query,
+  Res,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiOperation } from '@nestjs/swagger';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import * as nodemailer from 'nodemailer';
@@ -22,9 +34,13 @@ export class ContactRequestsController {
   }
 
   @Get('exists')
+  @ApiOperation({ summary: 'Check if a contact request exists by email' })
   async exists(@Query('email') email: string) {
     const result = await firstValueFrom(
-      this.adminService.send({ cmd: 'admin.contact_request_exists' }, { email })
+      this.adminService.send(
+        { cmd: 'admin.contact_request_exists' },
+        { email },
+      ),
     );
     if (result && !result.error) {
       return { exists: true, contact: result.contact, id: result.id };
@@ -33,34 +49,53 @@ export class ContactRequestsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Create a new contact request' })
   async create(@Body() body: any) {
     return firstValueFrom(
-      this.adminService.send({ cmd: 'admin.create_contact_request' }, body)
+      this.adminService.send({ cmd: 'admin.create_contact_request' }, body),
     );
   }
 
   @Put(':email')
+  @ApiOperation({ summary: 'Update an existing contact request' })
   async update(@Param('email') email: string, @Body() body: any) {
     return firstValueFrom(
-      this.adminService.send({ cmd: 'admin.update_contact_request' }, { email, payload: body })
+      this.adminService.send(
+        { cmd: 'admin.update_contact_request' },
+        { email, payload: body },
+      ),
     );
   }
 
   @Post('email/estimate')
+  @ApiOperation({ summary: 'Send an estimate email' })
   async sendEstimateEmail(@Body() body: any, @Res() res) {
     try {
-      const { recipients, subject, message, firstName, lastName, columns, rows, lang } = body;
+      const {
+        recipients,
+        subject,
+        message,
+        firstName,
+        lastName,
+        columns,
+        rows,
+        lang,
+      } = body;
 
-      let htmlRows = rows.map(r => `
+      const htmlRows = rows
+        .map(
+          (r) => `
         <tr>
           <td style="padding: 8px; border: 1px solid #ddd;">${r[columns[0]]}</td>
           <td style="padding: 8px; border: 1px solid #ddd;">${r[columns[1]]}</td>
           <td style="padding: 8px; border: 1px solid #ddd;">${r[columns[2]]}</td>
           <td style="padding: 8px; border: 1px solid #ddd;">${r[columns[3]]}</td>
         </tr>
-      `).join('');
+      `,
+        )
+        .join('');
 
-      let html = `
+      const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>${subject}</h2>
           <p>Hello ${firstName || ''} ${lastName || ''},</p>
@@ -92,16 +127,19 @@ export class ContactRequestsController {
       return res.status(HttpStatus.OK).json({ success: true });
     } catch (error) {
       console.error('Error sending estimate email:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: error.message });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ error: error.message });
     }
   }
 
   @Post('email/contact')
+  @ApiOperation({ summary: 'Send a contact confirmation email' })
   async sendContactEmail(@Body() body: any, @Res() res) {
     try {
       const { recipients, firstName, lastName, lang } = body;
 
-      let html = `
+      const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Contact Request Received</h2>
           <p>Hello ${firstName || ''} ${lastName || ''},</p>
@@ -120,7 +158,9 @@ export class ContactRequestsController {
       return res.status(HttpStatus.OK).json({ success: true });
     } catch (error) {
       console.error('Error sending contact email:', error);
-      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: error.message });
+      return res
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .json({ error: error.message });
     }
   }
 }

@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { UsersService } from './users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -7,7 +12,7 @@ import * as bcrypt from 'bcrypt';
 export class AuthService {
   constructor(
     private usersService: UsersService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
   ) {}
 
   async register(data: any) {
@@ -18,25 +23,27 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
-    
+
     // Map string role to Prisma Role Enum
     const mappedRoles = data.role === 'master' ? ['MASTER'] : ['USER'];
 
     // We save email as identifier if it includes @, otherwise phone
     const isEmail = identifier.includes('@');
 
-    const user = await this.usersService.create({
-      name: data.name,
-      email: data.email || null,
-      phone: data.phone || null,
-      password: hashedPassword,
-      roles: mappedRoles as any, // Cast to any to avoid strict Prisma enum typing issues
-    }).catch((e) => {
-      if (e.code === 'P2002') {
-        throw new ConflictException('auth_error_user_exists');
-      }
-      throw e;
-    });
+    const user = await this.usersService
+      .create({
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        password: hashedPassword,
+        roles: mappedRoles as any, // Cast to any to avoid strict Prisma enum typing issues
+      })
+      .catch((e) => {
+        if (e.code === 'P2002') {
+          throw new ConflictException('auth_error_user_exists');
+        }
+        throw e;
+      });
 
     return this.login(user);
   }
@@ -44,12 +51,19 @@ export class AuthService {
   async login(userOrCredentials: any) {
     let user = userOrCredentials;
     if (userOrCredentials.identifier && userOrCredentials.password) {
-      const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
-      if (!dbUser || !dbUser.password) throw new UnauthorizedException('auth_error_invalid_credentials');
+      const dbUser = await this.usersService.findByIdentifier(
+        userOrCredentials.identifier,
+      );
+      if (!dbUser || !dbUser.password)
+        throw new UnauthorizedException('auth_error_invalid_credentials');
 
-      const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
-      if (!isPasswordValid) throw new UnauthorizedException('auth_error_invalid_credentials');
-      
+      const isPasswordValid = await bcrypt.compare(
+        userOrCredentials.password,
+        dbUser.password,
+      );
+      if (!isPasswordValid)
+        throw new UnauthorizedException('auth_error_invalid_credentials');
+
       user = dbUser;
     }
 
@@ -66,8 +80,8 @@ export class AuthService {
         email: user.email,
         phone: user.phone,
         roles: user.roles,
-        userInfo: user.userInfo || null
-      }
+        userInfo: user.userInfo || null,
+      },
     };
   }
 
@@ -82,7 +96,9 @@ export class AuthService {
       user = await this.usersService.findByIdentifier(profile.email);
       if (user) {
         // Link existing account with Google ID
-        user = await this.usersService.update(user.id, { googleId: profile.googleId });
+        user = await this.usersService.update(user.id, {
+          googleId: profile.googleId,
+        });
       }
     }
 
@@ -93,14 +109,16 @@ export class AuthService {
       user = await this.usersService.create({
         googleId: profile.googleId,
         email: profile.email,
-        name: profile.firstName ? `${profile.firstName} ${profile.lastName || ''}`.trim() : 'Google User',
+        name: profile.firstName
+          ? `${profile.firstName} ${profile.lastName || ''}`.trim()
+          : 'Google User',
         roles: mappedRoles as any,
         // password is now optional in schema, so we can omit it
       });
     } else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
       // Add MASTER role if they specifically signed up as master this time via google
       user = await this.usersService.update(user.id, {
-        roles: [...user.roles, 'MASTER'] as any
+        roles: [...user.roles, 'MASTER'] as any,
       });
     }
 
@@ -119,7 +137,15 @@ export class AuthService {
     return this.usersService.updateAvatar(userId, avatarUrl);
   }
 
-  async createPortfolio(userId: string, data: { title: string, description?: string, imageUrls: string[], order?: number }) {
+  async createPortfolio(
+    userId: string,
+    data: {
+      title: string;
+      description?: string;
+      imageUrls: string[];
+      order?: number;
+    },
+  ) {
     return this.usersService.createPortfolio(userId, data);
   }
 
