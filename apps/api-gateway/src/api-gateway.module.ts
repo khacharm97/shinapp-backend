@@ -9,6 +9,7 @@ import { GoogleStrategy } from './common/strategies/google.strategy';
 import { AdminGatewayController } from './admin.controller';
 import { ContactRequestsController } from './contact-requests.controller';
 import { NotificationsGateway } from './notifications.gateway';
+import { R2StorageService } from './r2-storage.service';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { NotificationsGateway } from './notifications.gateway';
     JwtStrategy, 
     GoogleStrategy,
     NotificationsGateway,
+    R2StorageService,
   ],
 })
 export class ApiGatewayModule {}

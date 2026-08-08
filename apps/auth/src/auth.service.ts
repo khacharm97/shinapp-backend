@@ -123,7 +123,7 @@ export class AuthService {
         user = await this.usersService.update(user.id, {
           roles: [...user.roles, 'MASTER'] as any,
         });
-      } else if (profile.role === 'company' && !user.roles.includes('COMPANY')) {
+      } else if (profile.role === 'company' && !(user.roles as string[]).includes('COMPANY')) {
         user = await this.usersService.update(user.id, {
           roles: [...user.roles, 'COMPANY'] as any,
         });

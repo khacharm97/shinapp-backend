@@ -243,7 +243,11 @@ let AuthService = class AuthService {
             throw new common_1.ConflictException('auth_error_user_exists');
         }
         const hashedPassword = await bcrypt.hash(data.password, 10);
-        const mappedRoles = data.role === 'master' ? ['MASTER'] : ['USER'];
+        let mappedRoles = ['USER'];
+        if (data.role === 'master')
+            mappedRoles = ['MASTER'];
+        else if (data.role === 'company')
+            mappedRoles = ['COMPANY'];
         const isEmail = identifier.includes('@');
         const user = await this.usersService
             .create({
@@ -312,10 +316,17 @@ let AuthService = class AuthService {
                 roles: mappedRoles,
             });
         }
-        else if (profile.role === 'master' && !user.roles.includes('MASTER')) {
-            user = await this.usersService.update(user.id, {
-                roles: [...user.roles, 'MASTER'],
-            });
+        else {
+            if (profile.role === 'master' && !user.roles.includes('MASTER')) {
+                user = await this.usersService.update(user.id, {
+                    roles: [...user.roles, 'MASTER'],
+                });
+            }
+            else if (profile.role === 'company' && !user.roles.includes('COMPANY')) {
+                user = await this.usersService.update(user.id, {
+                    roles: [...user.roles, 'COMPANY'],
+                });
+            }
         }
         return this.login(user);
     }

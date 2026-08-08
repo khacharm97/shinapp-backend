@@ -31,6 +31,8 @@ import { ApiExcludeEndpoint, ApiOperation, ApiQuery, ApiBody } from '@nestjs/swa
 import { GoogleAuthGuard } from './common/guards/google-auth.guard';
 import { NotificationsGateway } from './notifications.gateway';
 
+import { R2StorageService } from './r2-storage.service';
+
 @Controller('auth')
 export class ApiGatewayController {
   constructor(
@@ -38,6 +40,7 @@ export class ApiGatewayController {
     @Inject('MASTERS_SERVICE') private readonly mastersService: ClientProxy,
     @Inject('NOTIFICATIONS_SERVICE') private readonly notificationsService: ClientProxy,
     private readonly notificationsGateway: NotificationsGateway,
+    private readonly r2StorageService: R2StorageService,
   ) {}
 
   @Get('google')
@@ -219,24 +222,7 @@ export class ApiGatewayController {
   @UseGuards(JwtAuthGuard)
   @Post('profile/avatar')
   @ApiOperation({ summary: 'Upload avatar for current user' })
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/avatars';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   async uploadAvatar(
     @Request() req,
     @UploadedFile() file: Express.Multer.File,
@@ -245,23 +231,8 @@ export class ApiGatewayController {
       throw new Error('File not found');
     }
 
-    // Attempt to delete old avatar if it exists
-    try {
-      const oldProfile = await firstValueFrom(
-        this.authService.send({ cmd: 'get-profile' }, { userId: req.user.id }),
-      );
-      if (oldProfile && oldProfile.avatarUrl) {
-        // e.g. avatarUrl is "/uploads/avatars/xyz.jpg", we join it with process.cwd()
-        const oldFilePath = join(process.cwd(), oldProfile.avatarUrl);
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to delete old avatar:', e);
-    }
-
-    const avatarUrl = `/uploads/avatars/${file.filename}`;
+    const avatarUrl = await this.r2StorageService.uploadFile(file, 'avatars');
+    
     const result = await firstValueFrom(
       this.authService.send(
         { cmd: 'update-avatar' },
@@ -275,31 +246,17 @@ export class ApiGatewayController {
   @Roles(Role.MASTER)
   @Post('profile/portfolio')
   @ApiOperation({ summary: 'Create a new portfolio entry with images' })
-  @UseInterceptors(
-    FilesInterceptor('images', 3, {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = './uploads/portfolios';
-          if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-          }
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('images', 3))
   async createPortfolio(
     @Request() req,
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Body() body: any,
   ) {
-    const imageUrls =
-      files?.map((f) => `/uploads/portfolios/${f.filename}`) || [];
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      const uploadPromises = files.map(file => this.r2StorageService.uploadFile(file, 'portfolios'));
+      imageUrls = await Promise.all(uploadPromises);
+    }
 
     const portfolioData = {
       title: body.title,
