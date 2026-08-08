@@ -1,18 +1,17 @@
 import { Module } from '@nestjs/common';
-import { AdminController } from './admin.controller';
-import { AdminService } from './admin.service';
-import { PrismaModule } from './prisma/prisma.module';
-import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { SkillsModule } from './skills/skills.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { ContactRequestsModule } from './contact-requests/contact-requests.module';
 
 @Module({
   imports: [
-    PrismaModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super_secret_key',
-      signOptions: { expiresIn: '12h' },
-    }),
+    AuthModule,
+    UsersModule,
+    SkillsModule,
+    AnnouncementsModule,
+    ContactRequestsModule,
   ],
-  controllers: [AdminController],
-  providers: [AdminService],
 })
 export class AdminModule {}

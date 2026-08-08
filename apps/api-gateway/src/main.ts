@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { ApiGatewayModule } from './api-gateway.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as dotenv from 'dotenv';
@@ -7,6 +8,9 @@ dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);
+  
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
   app.enableCors({
     origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

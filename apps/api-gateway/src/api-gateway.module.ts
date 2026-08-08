@@ -6,7 +6,11 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './common/strategies/google.strategy';
-import { AdminGatewayController } from './admin.controller';
+import { AdminAuthController } from './admin/controllers/admin-auth.controller';
+import { AdminUsersController } from './admin/controllers/admin-users.controller';
+import { AdminSkillsController } from './admin/controllers/admin-skills.controller';
+import { AdminAnnouncementsController } from './admin/controllers/admin-announcements.controller';
+import { AdminContactRequestsController } from './admin/controllers/admin-contact-requests.controller';
 import { ContactRequestsController } from './contact-requests.controller';
 import { NotificationsGateway } from './notifications.gateway';
 import { R2StorageService } from './r2-storage.service';
@@ -55,7 +59,11 @@ import { R2StorageService } from './r2-storage.service';
   ],
   controllers: [
     ApiGatewayController,
-    AdminGatewayController,
+    AdminAuthController,
+    AdminUsersController,
+    AdminSkillsController,
+    AdminAnnouncementsController,
+    AdminContactRequestsController,
     ContactRequestsController,
   ],
   providers: [
