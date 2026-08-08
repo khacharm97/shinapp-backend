@@ -267,6 +267,64 @@ export class MastersService {
     return { success: true };
   }
 
+  // --- Announcements ---
+  async getMyAnnouncements(companyId: string) {
+    return this.prisma.announcement.findMany({
+      where: { companyId },
+      include: {
+        company: {
+          select: { id: true, name: true, email: true, phone: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createMyAnnouncement(companyId: string, data: any) {
+    const startDate = data.startDate ? new Date(data.startDate) : new Date();
+    const endDate = data.endDate ? new Date(data.endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Default 7 days
+    
+    return this.prisma.announcement.create({
+      data: {
+        companyId,
+        sphere: data.sphere,
+        title: data.title,
+        description: data.description,
+        urgent: data.urgent || false,
+        status: data.status || 'PENDING',
+        startDate,
+        endDate,
+      },
+    });
+  }
+
+  async updateMyAnnouncement(companyId: string, id: string, data: any) {
+    const existing = await this.prisma.announcement.findUnique({ where: { id } });
+    if (!existing || existing.companyId !== companyId) {
+      throw new Error('Unauthorized or not found');
+    }
+
+    const updateData = { ...data };
+    if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
+    if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+
+    return this.prisma.announcement.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  async deleteMyAnnouncement(companyId: string, id: string) {
+    const existing = await this.prisma.announcement.findUnique({ where: { id } });
+    if (!existing || existing.companyId !== companyId) {
+      throw new Error('Unauthorized or not found');
+    }
+
+    return this.prisma.announcement.delete({
+      where: { id },
+    });
+  }
+
   async updateBrigade(data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
     const { ownerId, brigadeId, name, invites, removeMemberIds } = data;
     

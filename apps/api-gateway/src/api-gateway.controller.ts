@@ -441,7 +441,7 @@ export class ApiGatewayController {
     return { success: true };
   }
 
-  @MessagePattern({ cmd: 'send-ws-event' })
+  @MessagePattern('send_ws_event')
   handleSendWsEvent(@Payload() data: { userId: string; event: string; payload: any }) {
     this.notificationsGateway.sendEventToUser(data.userId, data.event, data.payload);
     return { success: true };

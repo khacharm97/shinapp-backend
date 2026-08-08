@@ -91,6 +91,43 @@ export class MastersController {
     return this.mastersService.deleteBrigade(data);
   }
 
+  // --- Announcements ---
+  @MessagePattern({ cmd: 'masters.get_my_announcements' })
+  async getMyAnnouncements(data: { companyId: string }) {
+    try {
+      return await this.mastersService.getMyAnnouncements(data.companyId);
+    } catch (e) {
+      return { error: e.message || 'Failed to fetch announcements' };
+    }
+  }
+
+  @MessagePattern({ cmd: 'masters.create_my_announcement' })
+  async createMyAnnouncement(data: { companyId: string; payload: any }) {
+    try {
+      return await this.mastersService.createMyAnnouncement(data.companyId, data.payload);
+    } catch (e) {
+      return { error: e.message || 'Failed to create announcement' };
+    }
+  }
+
+  @MessagePattern({ cmd: 'masters.update_my_announcement' })
+  async updateMyAnnouncement(data: { id: string; payload: any; companyId: string }) {
+    try {
+      return await this.mastersService.updateMyAnnouncement(data.companyId, data.id, data.payload);
+    } catch (e) {
+      return { error: e.message || 'Failed to update announcement' };
+    }
+  }
+
+  @MessagePattern({ cmd: 'masters.delete_my_announcement' })
+  async deleteMyAnnouncement(data: { id: string; companyId: string }) {
+    try {
+      return await this.mastersService.deleteMyAnnouncement(data.companyId, data.id);
+    } catch (e) {
+      return { error: e.message || 'Failed to delete announcement' };
+    }
+  }
+
   @MessagePattern({ cmd: 'update-brigade' })
   updateBrigade(@Payload() data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
     return this.mastersService.updateBrigade(data);
