@@ -92,6 +92,15 @@ export class MastersController {
   }
 
   // --- Announcements ---
+  @MessagePattern({ cmd: 'masters.get_public_announcements' })
+  async getPublicAnnouncements(data: { page: number; limit: number }) {
+    try {
+      return await this.mastersService.getPublicAnnouncements(data.page, data.limit);
+    } catch (e) {
+      return { error: e.message || 'Failed to fetch public announcements' };
+    }
+  }
+
   @MessagePattern({ cmd: 'masters.get_my_announcements' })
   async getMyAnnouncements(data: { companyId: string }) {
     try {

@@ -268,6 +268,42 @@ export class MastersService {
   }
 
   // --- Announcements ---
+  async getPublicAnnouncements(page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.announcement.findMany({
+        where: {
+          status: 'PUBLISHED',
+        },
+        include: {
+          company: {
+            select: { id: true, name: true, email: true, phone: true, avatarUrl: true }
+          }
+        },
+        orderBy: [
+          { urgent: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        skip,
+        take: limit,
+      }),
+      this.prisma.announcement.count({
+        where: {
+          status: 'PUBLISHED',
+        }
+      }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   async getMyAnnouncements(companyId: string) {
     return this.prisma.announcement.findMany({
       where: { companyId },
