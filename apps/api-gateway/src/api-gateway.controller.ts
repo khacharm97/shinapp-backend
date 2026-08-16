@@ -32,6 +32,7 @@ import { GoogleAuthGuard } from './common/guards/google-auth.guard';
 import { NotificationsGateway } from './notifications.gateway';
 
 import { R2StorageService } from './r2-storage.service';
+import { toHttpException } from './common/utils/rpc-error.util';
 
 @Controller('auth')
 export class ApiGatewayController {
@@ -75,21 +76,25 @@ export class ApiGatewayController {
   @Post('register')
   @ApiOperation({ summary: 'Register a new user' })
   async register(@Body() body: any) {
-    const result = await firstValueFrom(
-      this.authService.send({ cmd: 'register' }, body),
-    );
-    console.log('Microservice register returned:', result);
-    return result;
+    try {
+      return await firstValueFrom(
+        this.authService.send({ cmd: 'register' }, body),
+      );
+    } catch (err) {
+      throw toHttpException(err);
+    }
   }
 
   @Post('login')
   @ApiOperation({ summary: 'Login a user' })
   async login(@Body() body: any) {
-    const result = await firstValueFrom(
-      this.authService.send({ cmd: 'login' }, body),
-    );
-    console.log('Microservice login returned:', result);
-    return result;
+    try {
+      return await firstValueFrom(
+        this.authService.send({ cmd: 'login' }, body),
+      );
+    } catch (err) {
+      throw toHttpException(err);
+    }
   }
 
   @Get('skills')

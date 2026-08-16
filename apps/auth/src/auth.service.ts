@@ -1,9 +1,5 @@
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { UsersService } from './users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -19,7 +15,7 @@ export class AuthService {
     const identifier = data.email || data.phone;
     const existingUser = await this.usersService.findByIdentifier(identifier);
     if (existingUser) {
-      throw new ConflictException('auth_error_user_exists');
+      throw new RpcException({ statusCode: 400, message: 'user_already_exists' });
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -42,7 +38,7 @@ export class AuthService {
       })
       .catch((e) => {
         if (e.code === 'P2002') {
-          throw new ConflictException('auth_error_user_exists');
+          throw new RpcException({ statusCode: 400, message: 'user_already_exists' });
         }
         throw e;
       });
@@ -57,20 +53,20 @@ export class AuthService {
         userOrCredentials.identifier,
       );
       if (!dbUser || !dbUser.password)
-        throw new UnauthorizedException('auth_error_invalid_credentials');
+        throw new RpcException({ statusCode: 400, message: 'wrong_email_or_password' });
 
       const isPasswordValid = await bcrypt.compare(
         userOrCredentials.password,
         dbUser.password,
       );
       if (!isPasswordValid)
-        throw new UnauthorizedException('auth_error_invalid_credentials');
+        throw new RpcException({ statusCode: 400, message: 'wrong_email_or_password' });
 
       user = dbUser;
     }
 
     if (user.isBlocked) {
-      throw new ForbiddenException('auth_error_user_blocked');
+      throw new RpcException({ statusCode: 403, message: 'auth_error_user_blocked' });
     }
 
     const payload = { sub: user.id, roles: user.roles };
@@ -89,7 +85,7 @@ export class AuthService {
 
   async googleLogin(profile: any) {
     if (!profile) {
-      throw new UnauthorizedException('No user from google');
+      throw new RpcException({ statusCode: 401, message: 'auth_error_invalid_credentials' });
     }
 
     let user = await this.usersService.findByGoogleId(profile.googleId);
