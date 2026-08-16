@@ -9,19 +9,23 @@ import {
   Inject,
   UseGuards,
   UnauthorizedException,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { CreateAnnouncementDto } from '../dto/create-announcement.dto';
 import { UpdateAnnouncementDto } from '../dto/update-announcement.dto';
+import { R2StorageService } from '../../r2-storage.service';
 
 @ApiExcludeController()
 @Controller('admin/announcements')
 export class AdminAnnouncementsController {
   constructor(
     @Inject('ADMIN_SERVICE') private readonly adminClient: ClientProxy,
+    private readonly r2StorageService: R2StorageService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -36,9 +40,24 @@ export class AdminAnnouncementsController {
 
   @UseGuards(JwtAuthGuard)
   @Post()
-  async createAnnouncement(@Body() data: CreateAnnouncementDto) {
+  @UseInterceptors(FilesInterceptor('images', 3))
+  async createAnnouncement(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Body() body: any
+  ) {
+    let imageUrls: string[] = [];
+    if (files && files.length > 0) {
+      const uploadPromises = files.map(file => this.r2StorageService.uploadFile(file, 'announcements'));
+      imageUrls = await Promise.all(uploadPromises);
+    }
+    
+    // Convert string fields to booleans if sent via FormData
+    const urgent = body.urgent === 'true' || body.urgent === true;
+    
+    const payload = { ...body, urgent, imageUrls };
+    
     const result = await firstValueFrom(
-      this.adminClient.send({ cmd: 'admin.create_announcement' }, data),
+      this.adminClient.send({ cmd: 'admin.create_announcement' }, payload),
     );
     if (result && result.error) throw new UnauthorizedException(result.error);
     return result;
@@ -46,10 +65,32 @@ export class AdminAnnouncementsController {
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
+  @UseInterceptors(FilesInterceptor('images', 3))
   async updateAnnouncement(
     @Param('id') id: string,
-    @Body() payload: UpdateAnnouncementDto,
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Body() body: any,
   ) {
+    let newImageUrls: string[] = [];
+    if (files && files.length > 0) {
+      const uploadPromises = files.map(file => this.r2StorageService.uploadFile(file, 'announcements'));
+      newImageUrls = await Promise.all(uploadPromises);
+    }
+
+    let existingImages: string[] = [];
+    if (body.existingImages) {
+      existingImages = Array.isArray(body.existingImages) 
+        ? body.existingImages 
+        : [body.existingImages];
+    }
+    
+    const urgent = body.urgent === 'true' || body.urgent === true;
+    const payload = { 
+      ...body, 
+      urgent,
+      imageUrls: [...existingImages, ...newImageUrls] 
+    };
+
     const result = await firstValueFrom(
       this.adminClient.send(
         { cmd: 'admin.update_announcement' },
@@ -57,6 +98,12 @@ export class AdminAnnouncementsController {
       ),
     );
     if (result && result.error) throw new UnauthorizedException(result.error);
+    
+    if (result && result.removedImages && result.removedImages.length > 0) {
+      await this.r2StorageService.deleteFiles(result.removedImages);
+      delete result.removedImages;
+    }
+    
     return result;
   }
 
@@ -67,6 +114,12 @@ export class AdminAnnouncementsController {
       this.adminClient.send({ cmd: 'admin.delete_announcement' }, { id }),
     );
     if (result && result.error) throw new UnauthorizedException(result.error);
+    
+    if (result && result.removedImages && result.removedImages.length > 0) {
+      await this.r2StorageService.deleteFiles(result.removedImages);
+      delete result.removedImages;
+    }
+    
     return result;
   }
 }

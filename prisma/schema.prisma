@@ -178,6 +178,7 @@ model Announcement {
   status      AnnouncementStatus @default(PUBLISHED)
   startDate   DateTime
   endDate     DateTime
+  imageUrls   String[] @default([])
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

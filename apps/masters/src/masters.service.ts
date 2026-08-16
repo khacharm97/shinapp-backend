@@ -330,6 +330,7 @@ export class MastersService {
         status: data.status || 'PENDING',
         startDate,
         endDate,
+        imageUrls: data.imageUrls || [],
       },
     });
   }
@@ -344,10 +345,17 @@ export class MastersService {
     if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
     if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
 
-    return this.prisma.announcement.update({
+    let removedImages: string[] = [];
+    if (data.imageUrls) {
+      removedImages = existing.imageUrls.filter(url => !data.imageUrls.includes(url));
+    }
+
+    const updated = await this.prisma.announcement.update({
       where: { id },
       data: updateData,
     });
+    
+    return { ...updated, removedImages };
   }
 
   async deleteMyAnnouncement(companyId: string, id: string) {
@@ -356,9 +364,11 @@ export class MastersService {
       throw new Error('Unauthorized or not found');
     }
 
-    return this.prisma.announcement.delete({
+    const deleted = await this.prisma.announcement.delete({
       where: { id },
     });
+    
+    return { ...deleted, removedImages: existing.imageUrls || [] };
   }
 
   async updateBrigade(data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {

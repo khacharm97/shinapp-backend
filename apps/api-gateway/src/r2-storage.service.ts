@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { extname } from 'path';
 
 @Injectable()
@@ -40,5 +40,39 @@ export class R2StorageService {
       this.logger.error(`Failed to upload file to R2: ${error.message}`);
       throw error;
     }
+  }
+  async deleteFile(fileUrl: string): Promise<void> {
+    try {
+      const publicUrl = process.env.R2_PUBLIC_URL || '';
+      const cleanUrl = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
+      
+      // Extract the key from the URL
+      if (!fileUrl.startsWith(cleanUrl)) {
+        this.logger.warn(`File URL ${fileUrl} does not match R2_PUBLIC_URL, skipping deletion`);
+        return;
+      }
+      
+      const key = fileUrl.replace(`${cleanUrl}/`, '');
+      
+      const command = new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: key,
+      });
+      
+      await this.s3.send(command);
+      this.logger.log(`Successfully deleted ${key} from R2`);
+    } catch (error: any) {
+      this.logger.error(`Failed to delete file from R2: ${error.message}`);
+      // We don't throw error to prevent breaking the main flow if deletion fails
+    }
+  }
+
+  async deleteFiles(fileUrls: string[]): Promise<void> {
+    if (!fileUrls || fileUrls.length === 0) return;
+    
+    // Process deletions in parallel
+    await Promise.allSettled(
+      fileUrls.map(url => this.deleteFile(url))
+    );
   }
 }

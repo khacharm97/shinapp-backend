@@ -24,7 +24,7 @@ const common_1 = __webpack_require__(3);
 const auth_controller_1 = __webpack_require__(4);
 const auth_service_1 = __webpack_require__(5);
 const users_module_1 = __webpack_require__(14);
-const jwt_1 = __webpack_require__(11);
+const jwt_1 = __webpack_require__(12);
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
@@ -71,7 +71,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.AuthController = void 0;
 const common_1 = __webpack_require__(3);
 const auth_service_1 = __webpack_require__(5);
-const microservices_1 = __webpack_require__(13);
+const microservices_1 = __webpack_require__(6);
 let AuthController = class AuthController {
     authService;
     constructor(authService) {
@@ -226,9 +226,10 @@ var _a, _b;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.AuthService = void 0;
 const common_1 = __webpack_require__(3);
-const users_service_1 = __webpack_require__(6);
-const jwt_1 = __webpack_require__(11);
-const bcrypt = __importStar(__webpack_require__(12));
+const microservices_1 = __webpack_require__(6);
+const users_service_1 = __webpack_require__(7);
+const jwt_1 = __webpack_require__(12);
+const bcrypt = __importStar(__webpack_require__(13));
 let AuthService = class AuthService {
     usersService;
     jwtService;
@@ -240,7 +241,7 @@ let AuthService = class AuthService {
         const identifier = data.email || data.phone;
         const existingUser = await this.usersService.findByIdentifier(identifier);
         if (existingUser) {
-            throw new common_1.ConflictException('auth_error_user_exists');
+            throw new microservices_1.RpcException({ statusCode: 400, message: 'user_already_exists' });
         }
         const hashedPassword = await bcrypt.hash(data.password, 10);
         let mappedRoles = ['USER'];
@@ -259,7 +260,7 @@ let AuthService = class AuthService {
         })
             .catch((e) => {
             if (e.code === 'P2002') {
-                throw new common_1.ConflictException('auth_error_user_exists');
+                throw new microservices_1.RpcException({ statusCode: 400, message: 'user_already_exists' });
             }
             throw e;
         });
@@ -270,14 +271,14 @@ let AuthService = class AuthService {
         if (userOrCredentials.identifier && userOrCredentials.password) {
             const dbUser = await this.usersService.findByIdentifier(userOrCredentials.identifier);
             if (!dbUser || !dbUser.password)
-                throw new common_1.UnauthorizedException('auth_error_invalid_credentials');
+                throw new microservices_1.RpcException({ statusCode: 400, message: 'wrong_email_or_password' });
             const isPasswordValid = await bcrypt.compare(userOrCredentials.password, dbUser.password);
             if (!isPasswordValid)
-                throw new common_1.UnauthorizedException('auth_error_invalid_credentials');
+                throw new microservices_1.RpcException({ statusCode: 400, message: 'wrong_email_or_password' });
             user = dbUser;
         }
         if (user.isBlocked) {
-            throw new common_1.ForbiddenException('auth_error_user_blocked');
+            throw new microservices_1.RpcException({ statusCode: 403, message: 'auth_error_user_blocked' });
         }
         const payload = { sub: user.id, roles: user.roles };
         return {
@@ -294,7 +295,7 @@ let AuthService = class AuthService {
     }
     async googleLogin(profile) {
         if (!profile) {
-            throw new common_1.UnauthorizedException('No user from google');
+            throw new microservices_1.RpcException({ statusCode: 401, message: 'auth_error_invalid_credentials' });
         }
         let user = await this.usersService.findByGoogleId(profile.googleId);
         if (!user && profile.email) {
@@ -355,6 +356,12 @@ exports.AuthService = AuthService = __decorate([
 
 /***/ }),
 /* 6 */
+/***/ ((module) => {
+
+module.exports = require("@nestjs/microservices");
+
+/***/ }),
+/* 7 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -371,7 +378,7 @@ var _a;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.UsersService = void 0;
 const common_1 = __webpack_require__(3);
-const prisma_service_1 = __webpack_require__(7);
+const prisma_service_1 = __webpack_require__(8);
 let UsersService = class UsersService {
     prisma;
     constructor(prisma) {
@@ -555,7 +562,7 @@ exports.UsersService = UsersService = __decorate([
 
 
 /***/ }),
-/* 7 */
+/* 8 */
 /***/ (function(__unused_webpack_module, exports, __webpack_require__) {
 
 
@@ -571,9 +578,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PrismaService = void 0;
 const common_1 = __webpack_require__(3);
-const client_1 = __webpack_require__(8);
-const pg_1 = __webpack_require__(9);
-const adapter_pg_1 = __webpack_require__(10);
+const client_1 = __webpack_require__(9);
+const pg_1 = __webpack_require__(10);
+const adapter_pg_1 = __webpack_require__(11);
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     constructor() {
         const connectionString = process.env.DATABASE_URL ||
@@ -597,40 +604,34 @@ exports.PrismaService = PrismaService = __decorate([
 
 
 /***/ }),
-/* 8 */
+/* 9 */
 /***/ ((module) => {
 
 module.exports = require("@prisma/client");
 
 /***/ }),
-/* 9 */
+/* 10 */
 /***/ ((module) => {
 
 module.exports = require("pg");
 
 /***/ }),
-/* 10 */
+/* 11 */
 /***/ ((module) => {
 
 module.exports = require("@prisma/adapter-pg");
 
 /***/ }),
-/* 11 */
+/* 12 */
 /***/ ((module) => {
 
 module.exports = require("@nestjs/jwt");
 
 /***/ }),
-/* 12 */
-/***/ ((module) => {
-
-module.exports = require("bcrypt");
-
-/***/ }),
 /* 13 */
 /***/ ((module) => {
 
-module.exports = require("@nestjs/microservices");
+module.exports = require("bcrypt");
 
 /***/ }),
 /* 14 */
@@ -646,7 +647,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.UsersModule = void 0;
 const common_1 = __webpack_require__(3);
-const users_service_1 = __webpack_require__(6);
+const users_service_1 = __webpack_require__(7);
 const prisma_module_1 = __webpack_require__(15);
 let UsersModule = class UsersModule {
 };
@@ -674,7 +675,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PrismaModule = void 0;
 const common_1 = __webpack_require__(3);
-const prisma_service_1 = __webpack_require__(7);
+const prisma_service_1 = __webpack_require__(8);
 let PrismaModule = class PrismaModule {
 };
 exports.PrismaModule = PrismaModule;
@@ -722,7 +723,7 @@ var exports = __webpack_exports__;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core_1 = __webpack_require__(1);
 const auth_module_1 = __webpack_require__(2);
-const microservices_1 = __webpack_require__(13);
+const microservices_1 = __webpack_require__(6);
 async function bootstrap() {
     const app = await core_1.NestFactory.createMicroservice(auth_module_1.AuthModule, {
         transport: microservices_1.Transport.TCP,
