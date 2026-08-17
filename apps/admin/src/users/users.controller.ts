@@ -42,4 +42,13 @@ export class UsersController {
       return { error: e.message || 'Failed to verify/unverify user' };
     }
   }
+
+  @MessagePattern({ cmd: 'admin.create_user' })
+  async createUser(data: any) {
+    try {
+      return await this.usersService.createUser(data);
+    } catch (e) {
+      return { error: e.message || 'Failed to create user' };
+    }
+  }
 }

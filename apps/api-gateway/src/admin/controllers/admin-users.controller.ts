@@ -1,18 +1,21 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Param,
   Body,
   Inject,
   UseGuards,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { ToggleBlockUserDto, ToggleVerifyUserDto } from '../dto/toggle-user-status.dto';
+import { CreateUserDto } from '../dto/create-user.dto';
 
 @ApiExcludeController()
 @Controller('admin/users')
@@ -29,6 +32,18 @@ export class AdminUsersController {
     );
     if (result && result.error) {
       throw new UnauthorizedException(result.error);
+    }
+    return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  async createUser(@Body() data: CreateUserDto) {
+    const result = await firstValueFrom(
+      this.adminClient.send({ cmd: 'admin.create_user' }, data),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
     }
     return result;
   }
