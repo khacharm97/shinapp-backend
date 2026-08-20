@@ -179,7 +179,11 @@ export class MastersService {
     for (const invite of uniqueInvites) {
       const user = await this.prisma.user.findFirst({
         where: {
-          OR: [{ email: invite }, { phone: invite }],
+          OR: [
+            { email: invite },
+            { phone: invite },
+            { name: { contains: invite, mode: 'insensitive' } }
+          ],
         },
       });
 
@@ -393,7 +397,11 @@ export class MastersService {
     for (const invite of uniqueInvites) {
       const user = await this.prisma.user.findFirst({
         where: {
-          OR: [{ email: invite }, { phone: invite }],
+          OR: [
+            { email: invite },
+            { phone: invite },
+            { name: { contains: invite, mode: 'insensitive' } }
+          ],
         },
       });
 

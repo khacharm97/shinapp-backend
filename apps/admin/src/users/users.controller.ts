@@ -51,4 +51,13 @@ export class UsersController {
       return { error: e.message || 'Failed to create user' };
     }
   }
+
+  @MessagePattern({ cmd: 'admin.update_user' })
+  async updateUser(data: any) {
+    try {
+      return await this.usersService.updateUser(data.id, data);
+    } catch (e) {
+      return { error: e.message || 'Failed to update user' };
+    }
+  }
 }
