@@ -156,4 +156,61 @@ export class MastersController {
   rejectBrigadeInvite(@Payload() data: { userId: string; brigadeId: string }) {
     return this.mastersService.rejectBrigadeInvite(data);
   }
+
+  // --- Orders ---
+  @MessagePattern({ cmd: 'create-order' })
+  createOrder(@Payload() data: any) {
+    return this.mastersService.createOrder(data);
+  }
+
+  @MessagePattern({ cmd: 'get-my-orders' })
+  getMyOrders(@Payload() data: { userId: string }) {
+    return this.mastersService.getMyOrders(data.userId);
+  }
+
+  @MessagePattern({ cmd: 'get-order-by-id' })
+  getOrderById(@Payload() data: { userId: string; orderId: string }) {
+    return this.mastersService.getOrderById(data.userId, data.orderId);
+  }
+
+  @MessagePattern({ cmd: 'update-order' })
+  updateOrder(@Payload() data: any) {
+    return this.mastersService.updateOrder(data);
+  }
+
+  @MessagePattern({ cmd: 'accept-order' })
+  acceptOrder(@Payload() data: { userId: string; orderId: string }) {
+    return this.mastersService.acceptOrder(data.userId, data.orderId);
+  }
+
+  @MessagePattern({ cmd: 'reject-order' })
+  rejectOrder(@Payload() data: { userId: string; orderId: string }) {
+    return this.mastersService.rejectOrder(data.userId, data.orderId);
+  }
+
+  @MessagePattern({ cmd: 'request-order-completion' })
+  requestOrderCompletion(@Payload() data: { userId: string; orderId: string }) {
+    return this.mastersService.requestOrderCompletion(data.userId, data.orderId);
+  }
+
+  @MessagePattern({ cmd: 'accept-order-completion' })
+  acceptOrderCompletion(@Payload() data: { userId: string; orderId: string }) {
+    return this.mastersService.acceptOrderCompletion(data.userId, data.orderId);
+  }
+
+  @MessagePattern({ cmd: 'create-review' })
+  createReview(@Payload() data: any) {
+    return this.mastersService.createReview(data);
+  }
+
+  @MessagePattern({ cmd: 'get-master-reviews' })
+  getMasterReviews(@Payload() data: { masterId: string }) {
+    return this.mastersService.getReviewsForMaster(data.masterId);
+  }
+
+  @MessagePattern({ cmd: 'get-master-busy-dates' })
+  getMasterBusyDates(@Payload() data: { masterId: string }) {
+    return this.mastersService.getBusyDatesForMaster(data.masterId);
+  }
+
 }

@@ -16,6 +16,8 @@ import { NotificationsGateway } from './notifications.gateway';
 import { R2StorageService } from './r2-storage.service';
 import { ClientAnnouncementsController } from './client-announcements.controller';
 import { PublicAnnouncementsController } from './public-announcements.controller';
+import { OrdersController } from './orders.controller';
+import { ReviewsController } from './reviews.controller';
 
 @Module({
   imports: [
@@ -69,6 +71,7 @@ import { PublicAnnouncementsController } from './public-announcements.controller
     ContactRequestsController,
     ClientAnnouncementsController,
     PublicAnnouncementsController,
+    OrdersController,
   ],
   providers: [
     ApiGatewayService, 
