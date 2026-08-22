@@ -163,6 +163,14 @@ export class ApiGatewayController {
     );
   }
 
+  @Get('brigades/:id')
+  @ApiOperation({ summary: 'Get a brigade by ID' })
+  async getBrigadeById(@Param('id') id: string) {
+    return firstValueFrom(
+      this.mastersService.send({ cmd: 'get-brigade-by-id' }, { id }),
+    );
+  }
+
   @Get('search')
   @ApiOperation({ summary: 'Global search for masters' })
   async globalSearch(

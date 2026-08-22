@@ -78,7 +78,14 @@ export class MastersService {
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        include: { userInfo: true },
+        include: { 
+          userInfo: true,
+          ownedBrigades: true,
+          brigadeMemberships: {
+            where: { status: 'ACCEPTED' },
+            include: { brigade: true }
+          }
+        },
         skip,
         take: limit,
       }),
@@ -132,6 +139,11 @@ export class MastersService {
         portfolios: {
           orderBy: { order: 'asc' },
         },
+        brigadeMemberships: {
+          where: { status: 'ACCEPTED' },
+          include: { brigade: true },
+        },
+        ownedBrigades: true,
       },
     });
 
@@ -141,6 +153,31 @@ export class MastersService {
 
     const { password, ...sanitizedMaster } = master;
     return sanitizedMaster;
+  }
+
+  async getBrigadeById(id: string) {
+    const brigade = await this.prisma.brigade.findUnique({
+      where: { id },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true, phone: true, avatarUrl: true, userInfo: true },
+        },
+        members: {
+          where: { status: 'ACCEPTED' },
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, phone: true, avatarUrl: true, userInfo: true, portfolios: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!brigade) {
+      throw new NotFoundException('Brigade not found');
+    }
+
+    return brigade;
   }
 
   async getSkills(approvedOnly: boolean = true) {
@@ -165,8 +202,8 @@ export class MastersService {
     });
   }
 
-  async createBrigade(data: { ownerId: string; name: string; invites: string[] }) {
-    const { ownerId, name, invites } = data;
+  async createBrigade(data: { ownerId: string; name: string; about?: string; invites: string[] }) {
+    const { ownerId, name, about, invites } = data;
 
     if (!name || name.trim() === '') {
       return { error: 'Brigade name is required' };
@@ -204,6 +241,7 @@ export class MastersService {
     const brigade = await this.prisma.brigade.create({
       data: {
         name,
+        about,
         ownerId,
         members: {
           create: validUserIds.map((userId) => ({
@@ -375,8 +413,8 @@ export class MastersService {
     return { ...deleted, removedImages: existing.imageUrls || [] };
   }
 
-  async updateBrigade(data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
-    const { ownerId, brigadeId, name, invites, removeMemberIds } = data;
+  async updateBrigade(data: { ownerId: string; brigadeId: string; name: string; about?: string; invites: string[]; removeMemberIds: string[] }) {
+    const { ownerId, brigadeId, name, about, invites, removeMemberIds } = data;
     
     const brigade = await this.prisma.brigade.findFirst({
       where: { id: brigadeId, ownerId }
@@ -426,7 +464,7 @@ export class MastersService {
     await this.prisma.$transaction(async (tx) => {
       await tx.brigade.update({
         where: { id: brigadeId },
-        data: { name }
+        data: { name, about }
       });
       
       if (removeMemberIds && removeMemberIds.length > 0) {

@@ -119,6 +119,7 @@ enum InviteStatus {
 model Brigade {
   id          String   @id @default(uuid())
   name        String
+  about       String?
   ownerId     String
   owner       User     @relation("BrigadeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   

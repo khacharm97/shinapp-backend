@@ -77,8 +77,13 @@ export class MastersController {
   }
 
   @MessagePattern({ cmd: 'create-brigade' })
-  createBrigade(@Payload() data: { ownerId: string; name: string; invites: string[] }) {
+  createBrigade(@Payload() data: { ownerId: string; name: string; about?: string; invites: string[] }) {
     return this.mastersService.createBrigade(data);
+  }
+
+  @MessagePattern({ cmd: 'get-brigade-by-id' })
+  getBrigadeById(@Payload() data: { id: string }) {
+    return this.mastersService.getBrigadeById(data.id);
   }
 
   @MessagePattern({ cmd: 'get-brigades' })
@@ -138,7 +143,7 @@ export class MastersController {
   }
 
   @MessagePattern({ cmd: 'update-brigade' })
-  updateBrigade(@Payload() data: { ownerId: string; brigadeId: string; name: string; invites: string[]; removeMemberIds: string[] }) {
+  updateBrigade(@Payload() data: { ownerId: string; brigadeId: string; name: string; about?: string; invites: string[]; removeMemberIds: string[] }) {
     return this.mastersService.updateBrigade(data);
   }
 
