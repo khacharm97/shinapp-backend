@@ -21,7 +21,7 @@ import { ApiOperation, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { R2StorageService } from './r2-storage.service';
 
 @ApiTags('orders')
-@Controller('orders')
+@Controller('auth/orders')
 @UseGuards(JwtAuthGuard)
 export class OrdersController {
   constructor(

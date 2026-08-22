@@ -15,7 +15,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('reviews')
-@Controller('reviews')
+@Controller('auth/reviews')
 export class ReviewsController {
   constructor(
     @Inject('MASTERS_SERVICE') private readonly mastersService: ClientProxy,

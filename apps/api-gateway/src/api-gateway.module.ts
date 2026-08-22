@@ -72,6 +72,7 @@ import { ReviewsController } from './reviews.controller';
     ClientAnnouncementsController,
     PublicAnnouncementsController,
     OrdersController,
+    ReviewsController,
   ],
   providers: [
     ApiGatewayService, 
