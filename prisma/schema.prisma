@@ -150,6 +150,10 @@ model BrigadeMember {
 enum NotificationType {
   BRIGADE_INVITE
   SYSTEM
+  ORDER_INVITE
+  ORDER_UPDATE
+  ORDER_ACCEPTED
+  ORDER_REJECTED
 }
 
 model Notification {
