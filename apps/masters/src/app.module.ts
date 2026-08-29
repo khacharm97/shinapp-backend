@@ -1,0 +1,19 @@
+import { Module } from '@nestjs/common';
+import { MastersModule } from './masters/masters.module';
+import { SkillsModule } from './skills/skills.module';
+import { BrigadesModule } from './brigades/brigades.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
+import { OrdersModule } from './orders/orders.module';
+import { ReviewsModule } from './reviews/reviews.module';
+
+@Module({
+  imports: [
+    MastersModule,
+    SkillsModule,
+    BrigadesModule,
+    AnnouncementsModule,
+    OrdersModule,
+    ReviewsModule,
+  ],
+})
+export class AppModule {}
