@@ -1,24 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { MastersModule } from './../src/masters.module';
+import { AppModule } from './../src/app.module';
 
-describe('MastersController (e2e)', () => {
+describe('Masters microservice (e2e)', () => {
   let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [MastersModule],
+      imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  it('bootstraps the module graph', () => {
+    expect(app).toBeDefined();
   });
 });

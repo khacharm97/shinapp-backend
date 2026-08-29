@@ -337,6 +337,29 @@ export class ApiGatewayController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MASTER)
+  @Get('profile/brigade/invitees')
+  @ApiOperation({ summary: 'Search masters to invite into a brigade (by name, email or phone)' })
+  async searchBrigadeInvitees(
+    @Request() req,
+    @Query('search') search?: string,
+    @Query('brigadeId') brigadeId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'search-brigade-invitees' },
+        {
+          requesterId: req.user.id,
+          search: search || '',
+          brigadeId: brigadeId || undefined,
+          limit: limit ? parseInt(limit, 10) : undefined,
+        },
+      ),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER)
   @Delete('profile/brigade/:id')
   @ApiOperation({ summary: 'Delete a brigade' })
   async deleteBrigade(@Request() req, @Param('id') id: string) {

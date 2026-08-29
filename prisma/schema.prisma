@@ -56,6 +56,7 @@ model UserInfo {
   onlinePay    Boolean @default(false)
   buyMaterial  Boolean @default(false)
   nightShift   Boolean @default(false)
+  multipleJobs Boolean @default(false)
   topRated     Boolean @default(false)
   availableNow Boolean @default(true)
 
