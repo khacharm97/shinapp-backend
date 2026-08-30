@@ -135,6 +135,7 @@ export class ApiGatewayController {
     @Query('cityId') cityId?: string,
     @Query('topRated') topRated?: string,
     @Query('availableNow') availableNow?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
@@ -150,6 +151,7 @@ export class ApiGatewayController {
           cityId,
           topRated: topRated === 'true',
           availableNow: availableNow === 'true',
+          sortBy: sortBy === 'rating' ? 'rating' : undefined,
         },
       ),
     );
@@ -181,6 +183,7 @@ export class ApiGatewayController {
     @Query('cityId') cityId?: string,
     @Query('topRated') topRated?: string,
     @Query('availableNow') availableNow?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
@@ -196,6 +199,7 @@ export class ApiGatewayController {
           cityId,
           topRated: topRated === 'true',
           availableNow: availableNow === 'true',
+          sortBy: sortBy === 'rating' ? 'rating' : undefined,
         },
       ),
     );
@@ -448,6 +452,18 @@ export class ApiGatewayController {
   async getNotifications(@Request() req) {
     return firstValueFrom(
       this.notificationsService.send({ cmd: 'get-notifications' }, { userId: req.user.id }),
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('notifications/read-all')
+  @ApiOperation({ summary: 'Mark all notifications as read' })
+  async markAllNotificationsRead(@Request() req) {
+    return firstValueFrom(
+      this.notificationsService.send(
+        { cmd: 'mark-all-notifications-read' },
+        { userId: req.user.id }
+      ),
     );
   }
 

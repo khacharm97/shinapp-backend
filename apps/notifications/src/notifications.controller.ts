@@ -16,8 +16,18 @@ export class NotificationsController {
     return this.notificationsService.markNotificationRead(data.userId, data.notificationId);
   }
 
+  @MessagePattern({ cmd: 'mark-all-notifications-read' })
+  markAllNotificationsRead(@Payload() data: { userId: string }) {
+    return this.notificationsService.markAllNotificationsRead(data.userId);
+  }
+
   @MessagePattern({ cmd: 'create-notification' })
   createNotification(@Payload() data: { userId: string, type: any, title: string, message: string, metadata?: any }) {
     return this.notificationsService.createNotification(data);
+  }
+
+  @MessagePattern({ cmd: 'notify-masters-new-announcement' })
+  notifyMastersOfNewAnnouncement(@Payload() data: { announcementId: string, title: string, sphere?: string }) {
+    return this.notificationsService.notifyMastersOfNewAnnouncement(data);
   }
 }

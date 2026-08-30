@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { ClientProxy } from '@nestjs/microservices';
@@ -39,6 +40,19 @@ export class NotificationsService {
     }
   }
 
+  async markAllNotificationsRead(userId: string) {
+    try {
+      await this.prisma.notification.updateMany({
+        where: { userId, isRead: false },
+        data: { isRead: true },
+      });
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Error marking all notifications as read: ${error.message}`);
+      return { error: 'Failed to update notifications' };
+    }
+  }
+
   async createNotification(data: { userId: string; type: NotificationType; title: string; message: string; metadata?: any }) {
     try {
       const notification = await this.prisma.notification.create({
@@ -58,6 +72,65 @@ export class NotificationsService {
     } catch (error) {
       this.logger.error(`Error creating notification: ${error.message}`);
       return { error: 'Failed to create notification' };
+    }
+  }
+
+  /**
+   * Fan-out: notify every active master when an announcement goes live.
+   * Both the company-facing and admin-facing announcement services emit a
+   * single lightweight event here; this service owns the recipient lookup and
+   * the batched insert so that knowledge lives in one place.
+   */
+  async notifyMastersOfNewAnnouncement(data: {
+    announcementId: string;
+    title: string;
+    sphere?: string;
+  }) {
+    try {
+      const masters = await this.prisma.user.findMany({
+        where: {
+          roles: { has: 'MASTER' },
+          verifiedAt: { not: null },
+          isBlocked: false,
+        },
+        select: { id: true },
+      });
+
+      if (masters.length === 0) return { success: true, count: 0 };
+
+      const batchId = randomUUID();
+      const message = data.sphere
+        ? `New announcement in ${data.sphere}: "${data.title}"`
+        : `A new announcement was posted: "${data.title}"`;
+
+      await this.prisma.notification.createMany({
+        data: masters.map((m) => ({
+          userId: m.id,
+          type: NotificationType.ANNOUNCEMENT,
+          title: 'New announcement',
+          message,
+          metadata: { announcementId: data.announcementId, batchId },
+        })),
+      });
+
+      // Re-read the rows we just inserted (createMany returns no records) so we
+      // can push each master a real-time notification.
+      const created = await this.prisma.notification.findMany({
+        where: { metadata: { path: ['batchId'], equals: batchId } },
+      });
+      for (const notification of created) {
+        this.apiGatewayService.emit(
+          { cmd: 'send-ws-notification' },
+          { userId: notification.userId, notification },
+        );
+      }
+
+      return { success: true, count: created.length };
+    } catch (error) {
+      this.logger.error(
+        `Error notifying masters of announcement: ${error.message}`,
+      );
+      return { error: 'Failed to notify masters' };
     }
   }
 }
