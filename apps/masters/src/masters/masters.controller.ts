@@ -10,6 +10,7 @@ interface MasterListPayload {
   cityId?: string;
   topRated?: boolean;
   availableNow?: boolean;
+  sortBy?: 'rating';
 }
 
 @Controller()
@@ -24,6 +25,7 @@ export class MastersController {
       cityId: data.cityId,
       topRated: data.topRated,
       availableNow: data.availableNow,
+      sortBy: data.sortBy,
     });
   }
 
@@ -35,6 +37,7 @@ export class MastersController {
       cityId: data.cityId,
       topRated: data.topRated,
       availableNow: data.availableNow,
+      sortBy: data.sortBy,
     });
   }
 

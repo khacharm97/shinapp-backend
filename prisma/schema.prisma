@@ -155,6 +155,7 @@ enum NotificationType {
   ORDER_UPDATE
   ORDER_ACCEPTED
   ORDER_REJECTED
+  ANNOUNCEMENT
 }
 
 model Notification {

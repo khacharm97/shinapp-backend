@@ -35,15 +35,17 @@ services:
       - postgres
 
   admin-service:
-    build: 
+    build:
       context: .
       args:
         APP: admin
     environment:
       - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
       - JWT_SECRET=super_secret_key
+      - NOTIFICATIONS_HOST=notifications-service
     depends_on:
       - postgres
+      - notifications-service
 
   notifications-service:
     build: 

@@ -15,6 +15,15 @@ export class AnnouncementsController {
     }
   }
 
+  @MessagePattern({ cmd: 'masters.get_public_announcement_by_id' })
+  async getPublicAnnouncementById(@Payload() data: { id: string }) {
+    try {
+      return await this.announcementsService.getPublicAnnouncementById(data.id);
+    } catch (e) {
+      return { error: e.message || 'Failed to fetch announcement' };
+    }
+  }
+
   @MessagePattern({ cmd: 'masters.get_my_announcements' })
   async getMyAnnouncements(@Payload() data: { companyId: string }) {
     try {

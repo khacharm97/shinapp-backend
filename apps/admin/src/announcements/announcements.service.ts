@@ -1,9 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AnnouncementsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject('NOTIFICATIONS_SERVICE')
+    private readonly notificationsService: ClientProxy,
+  ) {}
+
+  /** Tell the notifications service to fan out to every active master. */
+  private notifyMastersOfAnnouncement(announcement: {
+    id: string;
+    title: string;
+    sphere?: string;
+  }) {
+    this.notificationsService.emit(
+      { cmd: 'notify-masters-new-announcement' },
+      {
+        announcementId: announcement.id,
+        title: announcement.title,
+        sphere: announcement.sphere,
+      },
+    );
+  }
 
   async getAnnouncements() {
     return this.prisma.announcement.findMany({
@@ -27,7 +48,7 @@ export class AnnouncementsService {
     endDate: Date;
     imageUrls?: string[];
   }) {
-    return this.prisma.announcement.create({
+    const created = await this.prisma.announcement.create({
       data: {
         ...data,
         startDate: new Date(data.startDate),
@@ -35,6 +56,12 @@ export class AnnouncementsService {
         imageUrls: data.imageUrls || [],
       },
     });
+
+    if (created.status === 'PUBLISHED') {
+      this.notifyMastersOfAnnouncement(created);
+    }
+
+    return created;
   }
 
   async updateAnnouncement(id: string, data: any) {
@@ -54,7 +81,13 @@ export class AnnouncementsService {
       where: { id },
       data: updateData,
     });
-    
+
+    // Fire only on the transition into PUBLISHED, not on every edit of an
+    // already-live announcement.
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      this.notifyMastersOfAnnouncement(updated);
+    }
+
     return { ...updated, removedImages };
   }
 
