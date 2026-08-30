@@ -39,6 +39,9 @@ model User {
   writtenReviews Review[] @relation("WrittenReviews")
   receivedReviews Review[] @relation("ReceivedReviews")
 
+  chatParticipations ConversationParticipant[]
+  sentMessages       Message[] @relation("MessageSender")
+
   @@unique([email, phone]) // Allows efficient querying for either
 }
 
@@ -156,6 +159,57 @@ enum NotificationType {
   ORDER_ACCEPTED
   ORDER_REJECTED
   ANNOUNCEMENT
+  MESSAGE
+}
+
+enum ConversationType {
+  USER_MASTER
+  MASTER_COMPANY
+  SUPPORT
+}
+
+model Conversation {
+  id             String           @id @default(uuid())
+  type           ConversationType
+  // Optional context this conversation is anchored to.
+  announcementId String?
+  orderId        String?
+
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([announcementId])
+  @@index([orderId])
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  body           String
+  attachments    String[]     @default([])
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 model Notification {

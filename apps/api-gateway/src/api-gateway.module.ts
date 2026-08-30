@@ -13,11 +13,13 @@ import { AdminAnnouncementsController } from './admin/controllers/admin-announce
 import { AdminContactRequestsController } from './admin/controllers/admin-contact-requests.controller';
 import { ContactRequestsController } from './contact-requests.controller';
 import { NotificationsGateway } from './notifications.gateway';
+import { ChatGateway } from './chat.gateway';
 import { R2StorageService } from './r2-storage.service';
 import { ClientAnnouncementsController } from './client-announcements.controller';
 import { PublicAnnouncementsController } from './public-announcements.controller';
 import { OrdersController } from './orders.controller';
 import { ReviewsController } from './reviews.controller';
+import { ChatController } from './chat.controller';
 
 @Module({
   imports: [
@@ -54,6 +56,14 @@ import { ReviewsController } from './reviews.controller';
           port: 3004,
         },
       },
+      {
+        name: 'CHAT_SERVICE',
+        transport: Transport.TCP,
+        options: {
+          host: process.env.CHAT_HOST || 'localhost',
+          port: 3006,
+        },
+      },
     ]),
     PassportModule,
     JwtModule.register({
@@ -73,12 +83,14 @@ import { ReviewsController } from './reviews.controller';
     PublicAnnouncementsController,
     OrdersController,
     ReviewsController,
+    ChatController,
   ],
   providers: [
-    ApiGatewayService, 
-    JwtStrategy, 
+    ApiGatewayService,
+    JwtStrategy,
     GoogleStrategy,
     NotificationsGateway,
+    ChatGateway,
     R2StorageService,
   ],
 })

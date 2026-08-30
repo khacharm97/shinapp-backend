@@ -48,7 +48,7 @@ services:
       - notifications-service
 
   notifications-service:
-    build: 
+    build:
       context: .
       args:
         APP: notifications
@@ -56,6 +56,17 @@ services:
       - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
       - JWT_SECRET=super_secret_key
       - API_GATEWAY_HOST=api-gateway
+    depends_on:
+      - postgres
+
+  chat-service:
+    build:
+      context: .
+      args:
+        APP: chat
+    environment:
+      - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
+      - JWT_SECRET=super_secret_key
     depends_on:
       - postgres
 
@@ -73,6 +84,7 @@ services:
       - ADMIN_HOST=admin-service
       - JWT_SECRET=super_secret_key
       - NOTIFICATIONS_HOST=notifications-service
+      - CHAT_HOST=chat-service
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-507203893182-la9lrf9mdka443bafkov7gvgvbaqhpag.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-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}
       - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
@@ -85,6 +97,7 @@ services:
       - masters-service
       - admin-service
       - notifications-service
+      - chat-service
     volumes:
       - uploads_data:/app/uploads
 
