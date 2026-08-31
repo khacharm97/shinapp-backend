@@ -9,7 +9,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 @Module({
   imports: [
     PrismaModule,
-    ScheduleModule.forRoot(),
+    ScheduleModule.forRoot({ enableDebugLogs: true }),
     UnreadMessagesModule,
     ClientsModule.register([
       {

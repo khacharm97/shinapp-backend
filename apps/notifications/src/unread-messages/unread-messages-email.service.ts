@@ -52,14 +52,21 @@ export class UnreadMessagesEmailService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sweep() {
+    this.logger.debug('Unread-messages sweep triggered');
+    console.log('Unread-messages sweep triggered');
     if (this.running) {
       this.logger.warn('Previous unread-messages sweep still running; skipping');
+      console.log('Previous unread-messages sweep still running; skipping');
       return;
     }
     this.running = true;
     try {
       const cutoff = new Date(Date.now() - this.delayMinutes * 60_000);
+      this.logger.debug(`Unread-messages sweep cutoff: ${cutoff.toISOString()}`);
+      console.log(`Unread-messages sweep cutoff: ${cutoff.toISOString()}`);
       const rows = await this.findDue(cutoff);
+      this.logger.debug(`Unread-messages sweep found ${rows.length} due row(s)`);
+      console.log(`Unread-messages sweep found ${rows.length} due row(s)`);
       if (rows.length === 0) return;
 
       let sent = 0;
@@ -86,11 +93,12 @@ export class UnreadMessagesEmailService {
           deferred++;
         }
       }
-      this.logger.log(
-        `Unread-messages sweep: ${rows.length} due, ${sent} sent, ${deferred} deferred for retry`,
-      );
+      const summary = `Unread-messages sweep: ${rows.length} due, ${sent} sent, ${deferred} deferred for retry`;
+      this.logger.log(summary);
+      console.log(summary);
     } catch (error) {
       this.logger.error(`Unread-messages sweep failed: ${error.message}`);
+      console.log(`Unread-messages sweep failed: ${error.message}`);
     } finally {
       this.running = false;
     }
