@@ -52,6 +52,7 @@ export class UnreadMessagesEmailService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sweep() {
+    this.logger.debug('Unread-messages sweep starting...');
     if (this.running) {
       this.logger.warn('Previous unread-messages sweep still running; skipping');
       return;
@@ -60,13 +61,19 @@ export class UnreadMessagesEmailService {
     try {
       const cutoff = new Date(Date.now() - this.delayMinutes * 60_000);
       const rows = await this.findDue(cutoff);
+      this.logger.debug(`Found ${rows.length} due messages`);
       if (rows.length === 0) return;
 
       let sent = 0;
       let deferred = 0;
       for (const row of rows) {
+        this.logger.debug(`User ${row.userId} in conversation ${row.conversationId}`);
         const claim = await this.claim(row);
-        if (!claim) continue; // lost the race / no longer eligible
+        if (!claim) {
+          this.logger.debug(`Claim failed for ${row.conversationId}`);
+          continue; // lost the race / no longer eligible
+        }
+        this.logger.debug(`Claim succeeded for ${row.conversationId}`);
 
         const ok = await this.mail.sendUnreadMessagesEmail({
           to: row.email,
