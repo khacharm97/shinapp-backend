@@ -35,7 +35,7 @@ async function bootstrap() {
   app.connectMicroservice({
     transport: require('@nestjs/microservices').Transport.TCP,
     options: {
-      host: '0.0.0.0',
+      host: '::',
       port: 3005,
     },
   });

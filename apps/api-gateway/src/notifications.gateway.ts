@@ -23,12 +23,17 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
   async handleConnection(client: Socket) {
     try {
-      const authHeader = client.handshake.headers.authorization;
-      if (!authHeader) {
-        throw new Error('No authorization header');
+      // Browsers can send the token via the handshake `auth` payload (works on
+      // both polling and websocket transports); `extraHeaders` only reaches us
+      // on the polling transport, so accept either.
+      const raw =
+        (client.handshake.auth?.token as string | undefined) ||
+        client.handshake.headers.authorization;
+      if (!raw) {
+        throw new Error('No authorization token');
       }
 
-      const token = authHeader.split(' ')[1];
+      const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
       const payload = this.jwtService.verify(token, { secret: process.env.JWT_SECRET || 'super_secret_key' });
       
       const userId = payload.sub; // User ID from JWT

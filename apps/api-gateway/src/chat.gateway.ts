@@ -38,10 +38,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket) {
     try {
-      const authHeader = client.handshake.headers.authorization;
-      if (!authHeader) throw new Error('No authorization header');
+      // Accept the token from the handshake `auth` payload (survives the
+      // websocket upgrade in browsers) or the Authorization header (polling).
+      const raw =
+        (client.handshake.auth?.token as string | undefined) ||
+        client.handshake.headers.authorization;
+      if (!raw) throw new Error('No authorization token');
 
-      const token = authHeader.split(' ')[1];
+      const token = raw.startsWith('Bearer ') ? raw.slice(7) : raw;
       const payload = this.jwtService.verify(token, {
         secret: process.env.JWT_SECRET || 'super_secret_key',
       });
