@@ -59,6 +59,17 @@ describe('UnreadMessagesEmailService', () => {
     expect(mail.sendUnreadMessagesEmail).not.toHaveBeenCalled();
   });
 
+  it('releases the claim when the email fails so a later sweep retries', async () => {
+    prisma.$queryRaw.mockResolvedValue([dueRow]);
+    prisma.$executeRaw.mockResolvedValue(1);
+    mail.sendUnreadMessagesEmail.mockResolvedValue(false);
+
+    await service.sweep();
+
+    // once to claim the row, once more to undo the claim after the send failed
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(2);
+  });
+
   it('does nothing when no participants are due', async () => {
     prisma.$queryRaw.mockResolvedValue([]);
 

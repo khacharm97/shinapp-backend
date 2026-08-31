@@ -14,6 +14,13 @@ interface DueRow {
   unreadCount: number;
 }
 
+interface ClaimToken {
+  /** Value of lastEmailedAt before we claimed - restored if the send fails. */
+  previous: Date | null;
+  /** The timestamp we wrote when claiming - used to detect our own claim. */
+  claimedAt: Date;
+}
+
 const PREVIEW_MAX = 140;
 const BATCH_LIMIT = 200;
 
@@ -56,8 +63,11 @@ export class UnreadMessagesEmailService {
       if (rows.length === 0) return;
 
       let sent = 0;
+      let deferred = 0;
       for (const row of rows) {
-        if (!(await this.claim(row))) continue; // lost the race / no longer eligible
+        const claim = await this.claim(row);
+        if (!claim) continue; // lost the race / no longer eligible
+
         const ok = await this.mail.sendUnreadMessagesEmail({
           to: row.email,
           recipientName: row.recipientName,
@@ -66,10 +76,18 @@ export class UnreadMessagesEmailService {
           preview: row.preview,
           conversationId: row.conversationId,
         });
-        if (ok) sent++;
+
+        if (ok) {
+          sent++;
+        } else {
+          // Send failed (e.g. a transient SMTP error). Undo the claim so a
+          // later sweep retries this row instead of silently dropping it.
+          await this.releaseClaim(row, claim);
+          deferred++;
+        }
       }
       this.logger.log(
-        `Unread-messages sweep: ${rows.length} due, ${sent} emails sent`,
+        `Unread-messages sweep: ${rows.length} due, ${sent} sent, ${deferred} deferred for retry`,
       );
     } catch (error) {
       this.logger.error(`Unread-messages sweep failed: ${error.message}`);
@@ -120,12 +138,26 @@ export class UnreadMessagesEmailService {
   /**
    * Atomically mark the reminder as sent. Re-checks eligibility in the WHERE so
    * a concurrent sweep (or a read that landed between findDue and here) cannot
-   * double-send. Returns true iff this call is the one that claimed the row.
+   * double-send. Returns a claim token (the row's previous and newly written
+   * `lastEmailedAt`) iff this call is the one that claimed the row, else null.
+   * The token lets the caller undo the claim if the email then fails to send.
    */
-  private async claim(row: DueRow): Promise<boolean> {
+  private async claim(row: DueRow): Promise<ClaimToken | null> {
+    const claimedAt = new Date();
+
+    const [current] = await this.prisma.$queryRaw<
+      { lastEmailedAt: Date | null }[]
+    >`
+      SELECT "lastEmailedAt"
+      FROM "ConversationParticipant"
+      WHERE "conversationId" = ${row.conversationId}
+        AND "userId" = ${row.userId}
+    `;
+    const previous = current?.lastEmailedAt ?? null;
+
     const affected = await this.prisma.$executeRaw`
       UPDATE "ConversationParticipant"
-      SET "lastEmailedAt" = NOW()
+      SET "lastEmailedAt" = ${claimedAt}
       WHERE "conversationId" = ${row.conversationId}
         AND "userId" = ${row.userId}
         AND (
@@ -133,6 +165,22 @@ export class UnreadMessagesEmailService {
           OR "lastEmailedAt" <= COALESCE("lastReadAt", TIMESTAMP 'epoch')
         )
     `;
-    return affected === 1;
+
+    return affected === 1 ? { previous, claimedAt } : null;
+  }
+
+  /**
+   * Undo a claim whose email failed to send, so a later sweep picks the row up
+   * again. Guarded on the exact timestamp we wrote, so a claim/read written by
+   * another sweep in the meantime is never clobbered.
+   */
+  private async releaseClaim(row: DueRow, claim: ClaimToken): Promise<void> {
+    await this.prisma.$executeRaw`
+      UPDATE "ConversationParticipant"
+      SET "lastEmailedAt" = ${claim.previous}
+      WHERE "conversationId" = ${row.conversationId}
+        AND "userId" = ${row.userId}
+        AND "lastEmailedAt" = ${claim.claimedAt}
+    `;
   }
 }

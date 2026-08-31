@@ -56,6 +56,10 @@ services:
       - DATABASE_URL=postgresql://root:password@postgres:5432/shinapp?schema=public
       - JWT_SECRET=super_secret_key
       - API_GATEWAY_HOST=api-gateway
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
     depends_on:
       - postgres
 
