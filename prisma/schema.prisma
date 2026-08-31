@@ -26,6 +26,8 @@ model User {
   avatarUrl  String?
   verifiedAt DateTime?
   isBlocked  Boolean  @default(false)
+  // Opt-out for the "you have unread chat messages" email reminder.
+  emailOnUnreadMessages Boolean @default(true)
 
   userInfo UserInfo?
   portfolios Portfolio[]
@@ -193,6 +195,10 @@ model ConversationParticipant {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastReadAt     DateTime?
+  // Last time an unread-messages email reminder was sent to this participant.
+  // Reset semantics: we only re-email once lastReadAt moves past lastEmailedAt
+  // (i.e. the user caught up and then fell behind again).
+  lastEmailedAt  DateTime?
 
   @@unique([conversationId, userId])
   @@index([userId])
