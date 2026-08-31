@@ -6,5 +6,6 @@ import { UnreadMessagesEmailService } from './unread-messages-email.service';
 @Module({
   imports: [PrismaModule, MailModule],
   providers: [UnreadMessagesEmailService],
+  exports: [UnreadMessagesEmailService],
 })
 export class UnreadMessagesModule {}
