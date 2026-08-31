@@ -15,6 +15,7 @@ import {
   UploadedFile,
   UploadedFiles,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { ClientProxy, MessagePattern, Payload } from '@nestjs/microservices';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
@@ -36,6 +37,8 @@ import { toHttpException } from './common/utils/rpc-error.util';
 
 @Controller('auth')
 export class ApiGatewayController {
+  private readonly logger = new Logger(ApiGatewayController.name);
+
   constructor(
     @Inject('AUTH_SERVICE') private readonly authService: ClientProxy,
     @Inject('MASTERS_SERVICE') private readonly mastersService: ClientProxy,
@@ -489,12 +492,18 @@ export class ApiGatewayController {
 
   @MessagePattern({ cmd: 'send-ws-notification' })
   handleSendWsNotification(@Payload() data: { userId: string; notification: any }) {
+    this.logger.log(
+      `send-ws-notification received for user ${data?.userId} (type ${data?.notification?.type})`,
+    );
     this.notificationsGateway.sendNotificationToUser(data.userId, data.notification);
     return { success: true };
   }
 
   @MessagePattern('send_ws_event')
   handleSendWsEvent(@Payload() data: { userId: string; event: string; payload: any }) {
+    this.logger.log(
+      `send_ws_event received for user ${data?.userId} (event ${data?.event})`,
+    );
     this.notificationsGateway.sendEventToUser(data.userId, data.event, data.payload);
     return { success: true };
   }

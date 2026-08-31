@@ -66,6 +66,9 @@ export class NotificationsService {
       });
 
       // Send WS notification to API Gateway
+      this.logger.log(
+        `Notification ${notification.id} persisted for user ${data.userId}; emitting send-ws-notification to API gateway (${process.env.API_GATEWAY_HOST || 'localhost'}:3005)`,
+      );
       this.apiGatewayService.emit({ cmd: 'send-ws-notification' }, { userId: data.userId, notification });
 
       return { success: true, notification };

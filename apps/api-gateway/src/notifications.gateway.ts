@@ -51,11 +51,19 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   }
 
   // Helper to send events
-  sendNotificationToUser(userId: string, notification: any) {
+  async sendNotificationToUser(userId: string, notification: any) {
+    const sockets = await this.server.in(userId).fetchSockets();
+    this.logger.log(
+      `Emitting 'new_notification' to room ${userId} (${sockets.length} socket(s) connected)`,
+    );
     this.server.to(userId).emit('new_notification', notification);
   }
 
-  sendEventToUser(userId: string, event: string, payload: any) {
+  async sendEventToUser(userId: string, event: string, payload: any) {
+    const sockets = await this.server.in(userId).fetchSockets();
+    this.logger.log(
+      `Emitting '${event}' to room ${userId} (${sockets.length} socket(s) connected)`,
+    );
     this.server.to(userId).emit(event, payload);
   }
 }
