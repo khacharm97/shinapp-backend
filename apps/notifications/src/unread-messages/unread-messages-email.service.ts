@@ -48,7 +48,10 @@ export class UnreadMessagesEmailService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
-  ) {}
+  ) {
+    this.logger.log('UnreadMessagesEmailService initialized');
+    console.log('UnreadMessagesEmailService initialized');
+  }
 
   @Cron(CronExpression.EVERY_MINUTE)
   async sweep() {
