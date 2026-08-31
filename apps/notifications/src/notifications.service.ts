@@ -79,6 +79,19 @@ export class NotificationsService {
   }
 
   /**
+   * Relay a realtime-only socket event to the API gateway. Used by feature
+   * services (brigades, ...) that only hold a client to this service. Nothing
+   * is persisted — this is purely a WS fan-out (e.g. cache-invalidation pings).
+   */
+  forwardWsEvent(data: { userId: string; event: string; payload: any }) {
+    this.logger.log(
+      `Forwarding ws event '${data.event}' for user ${data.userId} to API gateway (${process.env.API_GATEWAY_HOST || 'localhost'}:3005)`,
+    );
+    this.apiGatewayService.emit({ cmd: 'send-ws-event' }, data);
+    return { success: true };
+  }
+
+  /**
    * Fan-out: notify every active master when an announcement goes live.
    * Both the company-facing and admin-facing announcement services emit a
    * single lightweight event here; this service owns the recipient lookup and

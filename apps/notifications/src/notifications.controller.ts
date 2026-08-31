@@ -30,4 +30,12 @@ export class NotificationsController {
   notifyMastersOfNewAnnouncement(@Payload() data: { announcementId: string, title: string, sphere?: string }) {
     return this.notificationsService.notifyMastersOfNewAnnouncement(data);
   }
+
+  // Feature services (e.g. brigades) only hold a client to this service, so
+  // realtime-only events are relayed through here to the API gateway rather
+  // than every feature module wiring its own API_GATEWAY client.
+  @MessagePattern({ cmd: 'send-ws-event' })
+  forwardWsEvent(@Payload() data: { userId: string; event: string; payload: any }) {
+    return this.notificationsService.forwardWsEvent(data);
+  }
 }
