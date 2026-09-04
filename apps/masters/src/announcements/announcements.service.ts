@@ -42,6 +42,13 @@ export class AnnouncementsService {
               email: true,
               phone: true,
               avatarUrl: true,
+              verifiedAt: true,
+              userInfo: {
+                select: {
+                  regionId: true,
+                  cityId: true,
+                },
+              },
             },
           },
         },
