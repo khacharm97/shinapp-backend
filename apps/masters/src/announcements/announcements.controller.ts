@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 import { AnnouncementsService } from './announcements.service';
 
 @Controller()
@@ -22,6 +22,17 @@ export class AnnouncementsController {
     } catch (e) {
       return { error: e.message || 'Failed to fetch announcement' };
     }
+  }
+
+  @EventPattern({ cmd: 'masters.record_announcement_view' })
+  async recordAnnouncementView(
+    @Payload() data: { id: string; userId?: string | null; ip?: string; userAgent?: string },
+  ) {
+    await this.announcementsService.recordAnnouncementView(data.id, {
+      userId: data.userId,
+      ip: data.ip,
+      userAgent: data.userAgent,
+    });
   }
 
   @MessagePattern({ cmd: 'masters.get_my_announcements' })

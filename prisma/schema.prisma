@@ -251,9 +251,28 @@ model Announcement {
   startDate   DateTime
   endDate     DateTime
   imageUrls   String[] @default([])
+  viewsCount  Int      @default(0)
+  views       AnnouncementView[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// One row per de-duplicated view. `viewerKey` is `user:<userId>` for a
+// logged-in viewer or `ip:<hash>` for an anonymous one; `viewDate` is the
+// view's calendar day truncated to UTC midnight. The unique constraint is
+// what makes a repeat view within the same day a no-op instead of a new row,
+// so `Announcement.viewsCount` stays a trustworthy denormalized total.
+model AnnouncementView {
+  id             String       @id @default(uuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  viewerKey      String
+  viewDate       DateTime
+  createdAt      DateTime     @default(now())
+
+  @@unique([announcementId, viewerKey, viewDate])
+  @@index([announcementId])
 }
 
 

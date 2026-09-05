@@ -1,8 +1,9 @@
-import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Param, Query, Request, UseGuards } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { NotFoundException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { OptionalJwtAuthGuard } from './common/guards/optional-jwt-auth.guard';
 
 @ApiTags('Public Announcements')
 @Controller('announcements')
@@ -28,9 +29,10 @@ export class PublicAnnouncementsController {
     );
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
   @ApiOperation({ summary: 'Get a single published announcement with company details' })
-  async getPublicAnnouncementById(@Param('id') id: string) {
+  async getPublicAnnouncementById(@Param('id') id: string, @Request() req: any) {
     const result = await firstValueFrom(
       this.mastersClient.send(
         { cmd: 'masters.get_public_announcement_by_id' },
@@ -40,6 +42,18 @@ export class PublicAnnouncementsController {
     if (!result || result.error) {
       throw new NotFoundException(result?.error || 'Announcement not found');
     }
+
+    // Fire-and-forget: never let view tracking slow down or break the page load.
+    this.mastersClient.emit(
+      { cmd: 'masters.record_announcement_view' },
+      {
+        id,
+        userId: req.user?.id || null,
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+      },
+    );
+
     return result;
   }
 }

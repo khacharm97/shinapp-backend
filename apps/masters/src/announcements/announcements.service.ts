@@ -1,6 +1,12 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { createHmac } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+
+// Views from the same viewer only count once per calendar day (UTC). This
+// keeps repeat visits from a genuine returning viewer contributing over
+// time, while a page refreshed in a loop doesn't inflate the count.
+const VIEW_DEDUPE_SALT = process.env.VIEW_HASH_SALT || 'shinapp-view-salt';
 
 @Injectable()
 export class AnnouncementsService {
@@ -9,6 +15,50 @@ export class AnnouncementsService {
     @Inject('NOTIFICATIONS_SERVICE')
     private readonly notificationsService: ClientProxy,
   ) {}
+
+  /**
+   * Builds the de-dup key for a view. A logged-in user is identified by
+   * their id regardless of IP/device; an anonymous visitor is identified by
+   * a salted hash of IP + User-Agent so we never store raw IPs.
+   */
+  private buildViewerKey(userId?: string | null, ip?: string, userAgent?: string): string {
+    if (userId) return `user:${userId}`;
+    const fingerprint = createHmac('sha256', VIEW_DEDUPE_SALT)
+      .update(`${ip || 'unknown'}|${userAgent || 'unknown'}`)
+      .digest('hex');
+    return `ip:${fingerprint}`;
+  }
+
+  /**
+   * Records a view and bumps the denormalized counter, unless this viewer
+   * already viewed this announcement today. Never throws: a failure here
+   * (e.g. a race on the unique constraint) must not break page loads.
+   */
+  async recordAnnouncementView(
+    id: string,
+    opts: { userId?: string | null; ip?: string; userAgent?: string },
+  ) {
+    try {
+      const viewerKey = this.buildViewerKey(opts.userId, opts.ip, opts.userAgent);
+      const now = new Date();
+      const viewDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+      await this.prisma.announcementView.create({
+        data: { announcementId: id, viewerKey, viewDate },
+      });
+
+      await this.prisma.announcement.update({
+        where: { id },
+        data: { viewsCount: { increment: 1 } },
+      });
+    } catch (e: any) {
+      // Unique constraint violation (P2002) just means "already viewed today" -
+      // that's the expected dedupe path, not an error.
+      if (e?.code !== 'P2002') {
+        console.error('Failed to record announcement view', e);
+      }
+    }
+  }
 
   /** Tell the notifications service to fan out to every active master. */
   private notifyMastersOfAnnouncement(announcement: {

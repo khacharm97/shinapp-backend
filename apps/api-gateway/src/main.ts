@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ApiGatewayModule } from './api-gateway.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as dotenv from 'dotenv';
@@ -7,8 +8,12 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 async function bootstrap() {
-  const app = await NestFactory.create(ApiGatewayModule);
-  
+  const app = await NestFactory.create<NestExpressApplication>(ApiGatewayModule);
+
+  // Needed so req.ip reflects the real client address (from X-Forwarded-For)
+  // instead of the reverse proxy's address - used for anonymous view dedup.
+  app.set('trust proxy', 1);
+
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
   app.enableCors({
