@@ -20,6 +20,7 @@ import { PublicAnnouncementsController } from './public-announcements.controller
 import { OrdersController } from './orders.controller';
 import { ReviewsController } from './reviews.controller';
 import { ChatController } from './chat.controller';
+import { TechniquesController } from './techniques.controller';
 
 @Module({
   imports: [
@@ -84,6 +85,7 @@ import { ChatController } from './chat.controller';
     OrdersController,
     ReviewsController,
     ChatController,
+    TechniquesController,
   ],
   providers: [
     ApiGatewayService,

@@ -11,7 +11,21 @@ export class OrdersService {
   ) {}
 
   async createOrder(data: any) {
-    const { initiatorId, masterId, clientId, description, imageUrl, startDate, endDate, paymentMethod, price, address, latitude, longitude, privacyAccepted } = data;
+    const { initiatorId, techniqueId, clientId, description, imageUrl, startDate, endDate, paymentMethod, price, address, latitude, longitude, privacyAccepted } = data;
+    let { masterId } = data;
+
+    // A technique booking derives its master (the technique's owner) from the
+    // technique itself, so the client can never book on someone else's behalf.
+    if (techniqueId) {
+      const technique = await this.prisma.technique.findUnique({ where: { id: techniqueId } });
+      if (!technique) {
+        return { error: 'Technique not found' };
+      }
+      if (technique.ownerId === clientId) {
+        return { error: 'You cannot order your own technique' };
+      }
+      masterId = technique.ownerId;
+    }
 
     // Ensure the users exist
     const client = await this.prisma.user.findUnique({ where: { id: clientId } });
@@ -26,6 +40,7 @@ export class OrdersService {
         clientId,
         masterId,
         initiatorId,
+        techniqueId: techniqueId || null,
         description,
         imageUrl,
         startDate,
@@ -40,7 +55,8 @@ export class OrdersService {
       },
       include: {
         client: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
-        master: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } }
+        master: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
+        technique: { select: { id: true, name: true } },
       }
     });
 
@@ -71,6 +87,7 @@ export class OrdersService {
       include: {
         client: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
         master: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
+        technique: { select: { id: true, name: true } },
         reviews: { select: { id: true, authorId: true } }
       },
       orderBy: { createdAt: 'desc' }
@@ -83,6 +100,7 @@ export class OrdersService {
       include: {
         client: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
         master: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
+        technique: { select: { id: true, name: true } },
         reviews: { select: { id: true, authorId: true } }
       }
     });

@@ -47,6 +47,7 @@ export class OrdersController {
       ...body,
       imageUrl,
       initiatorId: req.user.id,
+      techniqueId: body.techniqueId || undefined,
       startDate: new Date(body.startDate),
       endDate: new Date(body.endDate),
       price: body.price ? parseFloat(body.price) : null,

@@ -38,6 +38,7 @@ model User {
 
   clientOrders Order[] @relation("ClientOrders")
   masterOrders Order[] @relation("MasterOrders")
+  techniques   Technique[] @relation("TechniqueOwner")
   writtenReviews Review[] @relation("WrittenReviews")
   receivedReviews Review[] @relation("ReceivedReviews")
 
@@ -292,25 +293,58 @@ model Order {
   masterId        String
   master          User        @relation("MasterOrders", fields: [masterId], references: [id], onDelete: Cascade)
   initiatorId     String
-  
+
+  // Set when this order is booking a specific Technique rather than a
+  // general master contract. `masterId` still holds the technique owner's
+  // id, so all existing master-order logic (accept/reject/notifications/
+  // reviews) keeps working unchanged for technique bookings.
+  techniqueId     String?
+  technique       Technique?  @relation(fields: [techniqueId], references: [id], onDelete: SetNull)
+
   description     String
   imageUrl        String?
   startDate       DateTime
   endDate         DateTime
   paymentMethod   String
   price           Float?
-  
+
   address         String?
   latitude        Float?
   longitude       Float?
-  
+
   status          OrderStatus @default(PENDING)
   privacyAccepted Boolean
-  
+
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-  
+
   reviews         Review[]
+
+  @@index([techniqueId])
+}
+
+enum TechniquePriceType {
+  HOURLY
+  FIXED
+}
+
+model Technique {
+  id          String             @id @default(uuid())
+  ownerId     String
+  owner       User               @relation("TechniqueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+  imageUrls   String[]           @default([])
+  priceType   TechniquePriceType
+  price       Float
+
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  orders      Order[]
+
+  @@index([ownerId])
 }
 
 model Review {
