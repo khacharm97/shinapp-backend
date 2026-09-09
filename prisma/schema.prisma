@@ -161,6 +161,7 @@ enum NotificationType {
   ORDER_UPDATE
   ORDER_ACCEPTED
   ORDER_REJECTED
+  ORDER_OVERDUE
   ANNOUNCEMENT
   MESSAGE
 }
@@ -314,6 +315,11 @@ model Order {
 
   status          OrderStatus @default(PENDING)
   privacyAccepted Boolean
+
+  // Set once the master has been notified that this order's endDate passed
+  // while it was still not COMPLETED, so the overdue sweep notifies each
+  // order only once instead of on every run.
+  overdueNotifiedAt DateTime?
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

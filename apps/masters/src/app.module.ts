@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MastersModule } from './masters/masters.module';
 import { SkillsModule } from './skills/skills.module';
 import { BrigadesModule } from './brigades/brigades.module';
@@ -9,6 +10,7 @@ import { TechniquesModule } from './techniques/techniques.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     MastersModule,
     SkillsModule,
     BrigadesModule,
