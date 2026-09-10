@@ -60,7 +60,14 @@ export class OverdueOrdersService {
             type: NotificationType.ORDER_OVERDUE,
             title: 'Order Overdue',
             message: 'The scheduled end date for one of your orders has passed and it is not yet marked as completed.',
-            metadata: { orderId: order.id },
+            metadata: {
+              orderId: order.id,
+              i18n: {
+                titleKey: 'notif_order_overdue_title',
+                messageKey: 'notif_order_overdue_message',
+                params: {},
+              },
+            },
           },
         );
         notified++;

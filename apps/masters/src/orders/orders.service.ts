@@ -69,7 +69,16 @@ export class OrdersService {
         type: NotificationType.ORDER_INVITE,
         title: 'New Order Request',
         message: `You have received a new order request from ${initiatorId === clientId ? (client.name || 'a client') : (master.name || 'a master')}.`,
-        metadata: { orderId: order.id },
+        metadata: {
+          orderId: order.id,
+          i18n: {
+            titleKey: 'notif_order_request_title',
+            messageKey: 'notif_order_request_message',
+            params: {
+              name: initiatorId === clientId ? (client.name || 'a client') : (master.name || 'a master'),
+            },
+          },
+        },
       }
     );
 
@@ -158,7 +167,14 @@ export class OrdersService {
         type: NotificationType.ORDER_UPDATE,
         title: 'Order Updated',
         message: `${initiatorName} has proposed new terms for your order.`,
-        metadata: { orderId: updated.id },
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_updated_title',
+            messageKey: 'notif_order_updated_message',
+            params: { name: initiatorName },
+          },
+        },
       }
     );
 
@@ -195,7 +211,14 @@ export class OrdersService {
         type: NotificationType.ORDER_ACCEPTED,
         title: 'Order Accepted',
         message: `${accepterName} has accepted the order terms.`,
-        metadata: { orderId: updated.id },
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_accepted_title',
+            messageKey: 'notif_order_accepted_message',
+            params: { name: accepterName },
+          },
+        },
       }
     );
 
@@ -232,7 +255,14 @@ export class OrdersService {
         type: NotificationType.ORDER_REJECTED,
         title: 'Order Rejected',
         message: `${rejecterName} has rejected the order terms.`,
-        metadata: { orderId: updated.id },
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_rejected_title',
+            messageKey: 'notif_order_rejected_message',
+            params: { name: rejecterName },
+          },
+        },
       }
     );
 
@@ -268,7 +298,14 @@ export class OrdersService {
         type: 'SYSTEM',
         title: 'Order Completion Requested',
         message: `${requesterName} has marked the order as completed. Please confirm.`,
-        metadata: { orderId: updated.id },
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_completion_requested_title',
+            messageKey: 'notif_order_completion_requested_message',
+            params: { name: requesterName },
+          },
+        },
       }
     );
 
@@ -302,7 +339,14 @@ export class OrdersService {
         type: 'SYSTEM',
         title: 'Order Completed',
         message: `${accepterName} has confirmed the order is completed.`,
-        metadata: { orderId: updated.id },
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_completed_title',
+            messageKey: 'notif_order_completed_message',
+            params: { name: accepterName },
+          },
+        },
       }
     );
 

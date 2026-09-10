@@ -131,7 +131,14 @@ export class BrigadesService {
           type: NotificationType.BRIGADE_INVITE,
           title: 'Brigade Invitation',
           message: `You have been invited to join the brigade "${brigade.name}".`,
-          metadata: { brigadeId: brigade.id },
+          metadata: {
+            brigadeId: brigade.id,
+            i18n: {
+              titleKey: 'notif_brigade_invite_title',
+              messageKey: 'notif_brigade_invite_message',
+              params: { brigade: brigade.name },
+            },
+          },
         },
       );
     }
@@ -325,7 +332,14 @@ export class BrigadesService {
           type: NotificationType.BRIGADE_INVITE,
           title: 'Brigade Invitation',
           message: `You have been invited to join the brigade "${name}".`,
-          metadata: { brigadeId },
+          metadata: {
+            brigadeId,
+            i18n: {
+              titleKey: 'notif_brigade_invite_title',
+              messageKey: 'notif_brigade_invite_message',
+              params: { brigade: name },
+            },
+          },
         },
       );
     }
@@ -379,7 +393,18 @@ export class BrigadesService {
           type: NotificationType.SYSTEM,
           title: 'Invite Accepted',
           message: `${user.name || user.email || user.phone} has accepted your invite to join "${brigade.name}".`,
-          metadata: { brigadeId: brigade.id, memberId: userId },
+          metadata: {
+            brigadeId: brigade.id,
+            memberId: userId,
+            i18n: {
+              titleKey: 'notif_invite_accepted_title',
+              messageKey: 'notif_invite_accepted_message',
+              params: {
+                name: user.name || user.email || user.phone,
+                brigade: brigade.name,
+              },
+            },
+          },
         },
       );
 
@@ -426,7 +451,18 @@ export class BrigadesService {
           type: NotificationType.SYSTEM,
           title: 'Invite Rejected',
           message: `${user.name || user.email || user.phone} has rejected your invite to join "${brigade.name}".`,
-          metadata: { brigadeId: brigade.id, memberId: userId },
+          metadata: {
+            brigadeId: brigade.id,
+            memberId: userId,
+            i18n: {
+              titleKey: 'notif_invite_rejected_title',
+              messageKey: 'notif_invite_rejected_message',
+              params: {
+                name: user.name || user.email || user.phone,
+                brigade: brigade.name,
+              },
+            },
+          },
         },
       );
 

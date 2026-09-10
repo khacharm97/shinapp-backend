@@ -119,13 +119,21 @@ export class NotificationsService {
         ? `New announcement in ${data.sphere}: "${data.title}"`
         : `A new announcement was posted: "${data.title}"`;
 
+      const i18n = {
+        titleKey: 'notif_announcement_title',
+        messageKey: data.sphere
+          ? 'notif_announcement_message_sphere'
+          : 'notif_announcement_message',
+        params: { sphere: data.sphere ?? '', title: data.title },
+      };
+
       await this.prisma.notification.createMany({
         data: masters.map((m) => ({
           userId: m.id,
           type: NotificationType.ANNOUNCEMENT,
           title: 'New announcement',
           message,
-          metadata: { announcementId: data.announcementId, batchId },
+          metadata: { announcementId: data.announcementId, batchId, i18n },
         })),
       });
 
