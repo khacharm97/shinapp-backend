@@ -66,4 +66,21 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     );
     this.server.to(userId).emit(event, payload);
   }
+
+  /**
+   * Every logged-in user keeps a socket connected here for as long as they
+   * have the app open (it's opened alongside the notifications subscription
+   * in the root layout, not just on a specific page), so "has a socket in
+   * this room" is a reasonable proxy for "online right now".
+   */
+  async getOnlineUserIds(userIds: string[]): Promise<Set<string>> {
+    const online = new Set<string>();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const sockets = await this.server.in(userId).fetchSockets();
+        if (sockets.length > 0) online.add(userId);
+      }),
+    );
+    return online;
+  }
 }

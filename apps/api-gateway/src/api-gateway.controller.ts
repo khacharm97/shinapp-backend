@@ -143,7 +143,7 @@ export class ApiGatewayController {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
 
-    return firstValueFrom(
+    const result: any = await firstValueFrom(
       this.mastersService.send(
         { cmd: 'get-masters' },
         {
@@ -158,6 +158,10 @@ export class ApiGatewayController {
         },
       ),
     );
+    if (result?.items) {
+      result.items = await this.attachOnlineStatus(result.items);
+    }
+    return result;
   }
 
   @Get('masters/:id')
@@ -191,7 +195,7 @@ export class ApiGatewayController {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
 
-    return firstValueFrom(
+    const result: any = await firstValueFrom(
       this.mastersService.send(
         { cmd: 'global-search' },
         {
@@ -206,6 +210,20 @@ export class ApiGatewayController {
         },
       ),
     );
+    if (result?.masters?.items) {
+      result.masters.items = await this.attachOnlineStatus(
+        result.masters.items,
+      );
+    }
+    return result;
+  }
+
+  /** Stamps `isOnline` onto each master based on whether they have a live socket connected. */
+  private async attachOnlineStatus(items: any[]): Promise<any[]> {
+    const onlineIds = await this.notificationsGateway.getOnlineUserIds(
+      items.map((item) => item.id),
+    );
+    return items.map((item) => ({ ...item, isOnline: onlineIds.has(item.id) }));
   }
 
   @Get('test-profile/:id')
