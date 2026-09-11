@@ -91,6 +91,61 @@ export class OrdersController {
     );
   }
 
+  @Get('busy-days')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.COMPANY)
+  @ApiOperation({ summary: "List the current master/company's manually-added busy periods" })
+  async listBusyDays(@Request() req) {
+    return firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'list-busy-periods' },
+        { masterId: req.user.id },
+      ),
+    );
+  }
+
+  @Post('busy-days')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.COMPANY)
+  @ApiOperation({ summary: 'Manually mark a date range as busy (vacation, outside job, etc.)' })
+  async addBusyDay(
+    @Request() req,
+    @Body() body: { startDate: string; endDate: string; note?: string },
+  ) {
+    const result: any = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'create-busy-period' },
+        {
+          masterId: req.user.id,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          note: body.note,
+        },
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @Delete('busy-days/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.COMPANY)
+  @ApiOperation({ summary: 'Remove one of the current master/company\'s manually-added busy periods' })
+  async removeBusyDay(@Request() req, @Param('id') id: string) {
+    const result: any = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'delete-busy-period' },
+        { masterId: req.user.id, id },
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
   @Get()
   @ApiOperation({ summary: 'Get all orders for the current user' })
   async getMyOrders(@Request() req) {

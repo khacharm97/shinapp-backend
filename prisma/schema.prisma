@@ -38,6 +38,7 @@ model User {
 
   clientOrders Order[] @relation("ClientOrders")
   masterOrders Order[] @relation("MasterOrders")
+  busyPeriods  BusyPeriod[] @relation("MasterBusyPeriods")
   techniques   Technique[] @relation("TechniqueOwner")
   writtenReviews Review[] @relation("WrittenReviews")
   receivedReviews Review[] @relation("ReceivedReviews")
@@ -327,6 +328,23 @@ model Order {
   reviews         Review[]
 
   @@index([techniqueId])
+}
+
+// A period a master/company manually marks themselves unavailable for
+// (vacation, a job outside the platform, etc.), separate from - and on top
+// of - the busy periods derived from their accepted orders. Only rows here
+// can be removed by the master; order-derived busy dates aren't stored as
+// BusyPeriod rows at all.
+model BusyPeriod {
+  id        String   @id @default(uuid())
+  masterId  String
+  master    User     @relation("MasterBusyPeriods", fields: [masterId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([masterId])
 }
 
 enum TechniquePriceType {

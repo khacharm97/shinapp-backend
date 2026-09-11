@@ -49,6 +49,68 @@ export class OrdersService {
   }
 
   /**
+   * A manually-added busy period (vacation, a job outside the platform, etc.)
+   * blocks orders unconditionally - unlike checkMasterAvailability, this does
+   * NOT respect multipleJobs, since it represents the master being unavailable
+   * at all, not just already handling another client's job.
+   */
+  private async checkCustomBusyPeriod(
+    masterId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const overlapping = await this.prisma.busyPeriod.findFirst({
+      where: {
+        masterId,
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+    });
+    if (overlapping) {
+      return 'order_master_unavailable';
+    }
+    return null;
+  }
+
+  async listBusyPeriods(masterId: string) {
+    return this.prisma.busyPeriod.findMany({
+      where: { masterId },
+      orderBy: { startDate: 'asc' },
+    });
+  }
+
+  async createBusyPeriod(
+    masterId: string,
+    startDate: Date,
+    endDate: Date,
+    note?: string,
+  ) {
+    if (!(startDate instanceof Date) || isNaN(startDate.getTime()) ||
+      !(endDate instanceof Date) || isNaN(endDate.getTime())) {
+      // A stable code, not a human sentence - the frontend maps this to a
+      // translated message the same way it does for order_master_busy.
+      return { error: 'busy_day_invalid_dates' };
+    }
+    if (endDate < startDate) {
+      // A stable code, not a human sentence - the frontend maps this to a
+      // translated message the same way it does for order_master_busy.
+      return { error: 'busy_day_end_before_start' };
+    }
+    return this.prisma.busyPeriod.create({
+      data: { masterId, startDate, endDate, note: note || null },
+    });
+  }
+
+  async deleteBusyPeriod(masterId: string, id: string) {
+    const period = await this.prisma.busyPeriod.findUnique({ where: { id } });
+    if (!period || period.masterId !== masterId) {
+      return { error: 'Busy period not found' };
+    }
+    await this.prisma.busyPeriod.delete({ where: { id } });
+    return { success: true };
+  }
+
+  /**
    * Search for users a master/company can propose an order to directly
    * (rather than waiting for a client to find them). Mirrors
    * searchBrigadeInvitees: auth-gated lookup by name/email/phone, but with no
@@ -153,6 +215,15 @@ export class OrdersService {
     );
     if (availabilityError) {
       return { error: availabilityError };
+    }
+
+    const busyPeriodError = await this.checkCustomBusyPeriod(
+      masterId,
+      new Date(startDate),
+      new Date(endDate),
+    );
+    if (busyPeriodError) {
+      return { error: busyPeriodError };
     }
 
     const order = await this.prisma.order.create({
@@ -414,6 +485,15 @@ export class OrdersService {
       return { error: availabilityError };
     }
 
+    const busyPeriodError = await this.checkCustomBusyPeriod(
+      order.masterId,
+      order.startDate,
+      order.endDate,
+    );
+    if (busyPeriodError) {
+      return { error: busyPeriodError };
+    }
+
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: { status: 'ACCEPTED' },
@@ -604,17 +684,26 @@ export class OrdersService {
   }
 
   async getBusyDatesForMaster(masterId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: {
-        masterId,
-        status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
-      },
-      select: {
-        startDate: true,
-        endDate: true,
-      },
-    });
+    const [orders, busyPeriods] = await Promise.all([
+      this.prisma.order.findMany({
+        where: {
+          masterId,
+          status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
+        },
+        select: {
+          startDate: true,
+          endDate: true,
+        },
+      }),
+      this.prisma.busyPeriod.findMany({
+        where: { masterId },
+        select: {
+          startDate: true,
+          endDate: true,
+        },
+      }),
+    ]);
 
-    return orders;
+    return [...orders, ...busyPeriods];
   }
 }

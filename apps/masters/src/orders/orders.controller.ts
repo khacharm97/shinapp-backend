@@ -57,4 +57,27 @@ export class OrdersController {
   getMasterBusyDates(@Payload() data: { masterId: string }) {
     return this.ordersService.getBusyDatesForMaster(data.masterId);
   }
+
+  @MessagePattern({ cmd: 'list-busy-periods' })
+  listBusyPeriods(@Payload() data: { masterId: string }) {
+    return this.ordersService.listBusyPeriods(data.masterId);
+  }
+
+  @MessagePattern({ cmd: 'create-busy-period' })
+  createBusyPeriod(
+    @Payload()
+    data: { masterId: string; startDate: string; endDate: string; note?: string },
+  ) {
+    return this.ordersService.createBusyPeriod(
+      data.masterId,
+      new Date(data.startDate),
+      new Date(data.endDate),
+      data.note,
+    );
+  }
+
+  @MessagePattern({ cmd: 'delete-busy-period' })
+  deleteBusyPeriod(@Payload() data: { masterId: string; id: string }) {
+    return this.ordersService.deleteBusyPeriod(data.masterId, data.id);
+  }
 }
