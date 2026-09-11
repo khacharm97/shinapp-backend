@@ -91,6 +91,7 @@ export class UsersService {
         onlinePay: data.onlinePay || false,
         buyMaterial: data.buyMaterial || false,
         nightShift: data.nightShift || false,
+        multipleJobs: data.multipleJobs || false,
         socialFacebook: data.socialFacebook || null,
         socialInstagram: data.socialInstagram || null,
         socialTiktok: data.socialTiktok || null,
@@ -168,11 +169,12 @@ export class UsersService {
         onlinePay: data.onlinePay || false,
         buyMaterial: data.buyMaterial || false,
         nightShift: data.nightShift || false,
+        multipleJobs: data.multipleJobs || false,
         socialFacebook: data.socialFacebook || null,
         socialInstagram: data.socialInstagram || null,
         socialTiktok: data.socialTiktok || null,
       };
-      
+
       updateData.userInfo = {
         upsert: {
           create: userInfoData,

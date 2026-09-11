@@ -48,4 +48,48 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   website?: string;
+
+  @IsString()
+  @IsOptional()
+  regionId?: string;
+
+  @IsString()
+  @IsOptional()
+  cityId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  largeScale?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  urgentOrders?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  onlinePay?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  buyMaterial?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  nightShift?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  multipleJobs?: boolean;
+
+  @IsString()
+  @IsOptional()
+  socialFacebook?: string;
+
+  @IsString()
+  @IsOptional()
+  socialInstagram?: string;
+
+  @IsString()
+  @IsOptional()
+  socialTiktok?: string;
 }

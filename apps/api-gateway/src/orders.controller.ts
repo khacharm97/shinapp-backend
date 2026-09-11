@@ -6,6 +6,7 @@ import {
   Post,
   Put,
   Delete,
+  Query,
   UseGuards,
   Request,
   Inject,
@@ -17,6 +18,9 @@ import { ClientProxy } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { firstValueFrom } from 'rxjs';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { Roles } from './common/decorators/roles.decorator';
+import { Role } from '@prisma/client';
 import { ApiOperation, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { R2StorageService } from './r2-storage.service';
 
@@ -64,6 +68,27 @@ export class OrdersController {
       throw new BadRequestException(result.error);
     }
     return result;
+  }
+
+  @Get('clients')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.MASTER, Role.COMPANY)
+  @ApiOperation({ summary: 'Search users a master/company can propose an order to' })
+  async searchOrderClients(
+    @Request() req,
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'search-order-clients' },
+        {
+          requesterId: req.user.id,
+          search: search || '',
+          limit: limit ? parseInt(limit, 10) : undefined,
+        },
+      ),
+    );
   }
 
   @Get()

@@ -11,6 +11,13 @@ export class OrdersController {
     return this.ordersService.createOrder(data);
   }
 
+  @MessagePattern({ cmd: 'search-order-clients' })
+  searchOrderClients(
+    @Payload() data: { requesterId: string; search: string; limit?: number },
+  ) {
+    return this.ordersService.searchOrderClients(data);
+  }
+
   @MessagePattern({ cmd: 'get-my-orders' })
   getMyOrders(@Payload() data: { userId: string }) {
     return this.ordersService.getMyOrders(data.userId);
