@@ -31,7 +31,7 @@ export class OrdersController {
   constructor(
     @Inject('MASTERS_SERVICE') private readonly mastersService: ClientProxy,
     private readonly r2StorageService: R2StorageService,
-  ) { }
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new order (invite)' })
@@ -52,12 +52,14 @@ export class OrdersController {
       imageUrl,
       initiatorId: req.user.id,
       techniqueId: body.techniqueId || undefined,
+      brigadeId: body.brigadeId || undefined,
       startDate: new Date(body.startDate),
       endDate: new Date(body.endDate),
       price: body.price ? parseFloat(body.price) : null,
       latitude: body.latitude ? parseFloat(body.latitude) : null,
       longitude: body.longitude ? parseFloat(body.longitude) : null,
-      privacyAccepted: body.privacyAccepted === 'true' || body.privacyAccepted === true,
+      privacyAccepted:
+        body.privacyAccepted === 'true' || body.privacyAccepted === true,
     };
 
     const result = await firstValueFrom(
@@ -73,7 +75,9 @@ export class OrdersController {
   @Get('clients')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MASTER, Role.COMPANY)
-  @ApiOperation({ summary: 'Search users a master/company can propose an order to' })
+  @ApiOperation({
+    summary: 'Search users a master/company can propose an order to',
+  })
   async searchOrderClients(
     @Request() req,
     @Query('search') search?: string,
@@ -94,7 +98,9 @@ export class OrdersController {
   @Get('busy-days')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MASTER, Role.COMPANY)
-  @ApiOperation({ summary: "List the current master/company's manually-added busy periods" })
+  @ApiOperation({
+    summary: "List the current master/company's manually-added busy periods",
+  })
   async listBusyDays(@Request() req) {
     return firstValueFrom(
       this.mastersService.send(
@@ -107,7 +113,9 @@ export class OrdersController {
   @Post('busy-days')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MASTER, Role.COMPANY)
-  @ApiOperation({ summary: 'Manually mark a date range as busy (vacation, outside job, etc.)' })
+  @ApiOperation({
+    summary: 'Manually mark a date range as busy (vacation, outside job, etc.)',
+  })
   async addBusyDay(
     @Request() req,
     @Body() body: { startDate: string; endDate: string; note?: string },
@@ -132,7 +140,10 @@ export class OrdersController {
   @Delete('busy-days/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.MASTER, Role.COMPANY)
-  @ApiOperation({ summary: 'Remove one of the current master/company\'s manually-added busy periods' })
+  @ApiOperation({
+    summary:
+      "Remove one of the current master/company's manually-added busy periods",
+  })
   async removeBusyDay(@Request() req, @Param('id') id: string) {
     const result: any = await firstValueFrom(
       this.mastersService.send(
@@ -150,16 +161,26 @@ export class OrdersController {
   @ApiOperation({ summary: 'Get all orders for the current user' })
   async getMyOrders(@Request() req) {
     return firstValueFrom(
-      this.mastersService.send({ cmd: 'get-my-orders' }, { userId: req.user.id }),
+      this.mastersService.send(
+        { cmd: 'get-my-orders' },
+        { userId: req.user.id },
+      ),
     );
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific order by ID' })
   async getOrderById(@Request() req, @Param('id') id: string) {
-    return firstValueFrom(
-      this.mastersService.send({ cmd: 'get-order-by-id' }, { userId: req.user.id, orderId: id }),
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'get-order-by-id' },
+        { userId: req.user.id, orderId: id },
+      ),
     );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
   }
 
   @Put(':id')
@@ -187,7 +208,8 @@ export class OrdersController {
       price: body.price ? parseFloat(body.price) : null,
       latitude: body.latitude ? parseFloat(body.latitude) : null,
       longitude: body.longitude ? parseFloat(body.longitude) : null,
-      privacyAccepted: body.privacyAccepted === 'true' || body.privacyAccepted === true,
+      privacyAccepted:
+        body.privacyAccepted === 'true' || body.privacyAccepted === true,
     };
 
     const result = await firstValueFrom(
@@ -204,7 +226,10 @@ export class OrdersController {
   @ApiOperation({ summary: 'Accept an order' })
   async acceptOrder(@Request() req, @Param('id') id: string) {
     const result = await firstValueFrom(
-      this.mastersService.send({ cmd: 'accept-order' }, { userId: req.user.id, orderId: id }),
+      this.mastersService.send(
+        { cmd: 'accept-order' },
+        { userId: req.user.id, orderId: id },
+      ),
     );
     if (result && result.error) {
       throw new BadRequestException(result.error);
@@ -216,7 +241,31 @@ export class OrdersController {
   @ApiOperation({ summary: 'Reject an order' })
   async rejectOrder(@Request() req, @Param('id') id: string) {
     const result = await firstValueFrom(
-      this.mastersService.send({ cmd: 'reject-order' }, { userId: req.user.id, orderId: id }),
+      this.mastersService.send(
+        { cmd: 'reject-order' },
+        { userId: req.user.id, orderId: id },
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
+  @Post(':id/assign')
+  @ApiOperation({
+    summary: 'Staff an accepted brigade order with specific brigade member(s)',
+  })
+  async assignOrderMembers(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { memberIds: string[] },
+  ) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'assign-order-members' },
+        { ownerId: req.user.id, orderId: id, memberIds: body.memberIds || [] },
+      ),
     );
     if (result && result.error) {
       throw new BadRequestException(result.error);
@@ -228,7 +277,10 @@ export class OrdersController {
   @ApiOperation({ summary: 'Request completion of an order' })
   async requestOrderCompletion(@Request() req, @Param('id') id: string) {
     const result = await firstValueFrom(
-      this.mastersService.send({ cmd: 'request-order-completion' }, { userId: req.user.id, orderId: id }),
+      this.mastersService.send(
+        { cmd: 'request-order-completion' },
+        { userId: req.user.id, orderId: id },
+      ),
     );
     if (result && result.error) {
       throw new BadRequestException(result.error);
@@ -240,12 +292,14 @@ export class OrdersController {
   @ApiOperation({ summary: 'Accept completion of an order' })
   async acceptOrderCompletion(@Request() req, @Param('id') id: string) {
     const result = await firstValueFrom(
-      this.mastersService.send({ cmd: 'accept-order-completion' }, { userId: req.user.id, orderId: id }),
+      this.mastersService.send(
+        { cmd: 'accept-order-completion' },
+        { userId: req.user.id, orderId: id },
+      ),
     );
     if (result && result.error) {
       throw new BadRequestException(result.error);
     }
     return result;
   }
-
 }

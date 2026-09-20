@@ -53,6 +53,17 @@ export class OrdersController {
     return this.ordersService.acceptOrderCompletion(data.userId, data.orderId);
   }
 
+  @MessagePattern({ cmd: 'assign-order-members' })
+  assignOrderMembers(
+    @Payload() data: { ownerId: string; orderId: string; memberIds: string[] },
+  ) {
+    return this.ordersService.assignOrderMembers(
+      data.ownerId,
+      data.orderId,
+      data.memberIds,
+    );
+  }
+
   @MessagePattern({ cmd: 'get-master-busy-dates' })
   getMasterBusyDates(@Payload() data: { masterId: string }) {
     return this.ordersService.getBusyDatesForMaster(data.masterId);
@@ -66,7 +77,12 @@ export class OrdersController {
   @MessagePattern({ cmd: 'create-busy-period' })
   createBusyPeriod(
     @Payload()
-    data: { masterId: string; startDate: string; endDate: string; note?: string },
+    data: {
+      masterId: string;
+      startDate: string;
+      endDate: string;
+      note?: string;
+    },
   ) {
     return this.ordersService.createBusyPeriod(
       data.masterId,

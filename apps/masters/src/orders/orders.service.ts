@@ -72,6 +72,51 @@ export class OrdersService {
     return null;
   }
 
+  /**
+   * Same idea as checkMasterAvailability, but for a brigade member being
+   * assigned to work an order - checks both the member's own orders and any
+   * OTHER order they're already assigned to (excluding this one, since we're
+   * about to (re)write its assignments anyway).
+   */
+  private async checkMemberAssignmentAvailability(
+    memberId: string,
+    startDate: Date,
+    endDate: Date,
+    currentOrderId: string,
+  ) {
+    const member = await this.prisma.user.findUnique({
+      where: { id: memberId },
+      include: { userInfo: true },
+    });
+    if (member?.userInfo?.multipleJobs) return null;
+
+    const ownOrder = await this.prisma.order.findFirst({
+      where: {
+        masterId: memberId,
+        id: { not: currentOrderId },
+        status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+      },
+    });
+    if (ownOrder) return 'order_master_busy';
+
+    const conflictingAssignment = await this.prisma.orderAssignment.findFirst({
+      where: {
+        memberId,
+        orderId: { not: currentOrderId },
+        order: {
+          status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        },
+      },
+    });
+    if (conflictingAssignment) return 'order_master_busy';
+
+    return null;
+  }
+
   async listBusyPeriods(masterId: string) {
     return this.prisma.busyPeriod.findMany({
       where: { masterId },
@@ -85,8 +130,12 @@ export class OrdersService {
     endDate: Date,
     note?: string,
   ) {
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime()) ||
-      !(endDate instanceof Date) || isNaN(endDate.getTime())) {
+    if (
+      !(startDate instanceof Date) ||
+      isNaN(startDate.getTime()) ||
+      !(endDate instanceof Date) ||
+      isNaN(endDate.getTime())
+    ) {
       // A stable code, not a human sentence - the frontend maps this to a
       // translated message the same way it does for order_master_busy.
       return { error: 'busy_day_invalid_dates' };
@@ -157,6 +206,7 @@ export class OrdersService {
     const {
       initiatorId,
       techniqueId,
+      brigadeId,
       clientId,
       description,
       imageUrl,
@@ -170,6 +220,7 @@ export class OrdersService {
       privacyAccepted,
     } = data;
     let { masterId } = data;
+    let brigadeName: string | undefined;
 
     // A technique booking derives its master (the technique's owner) from the
     // technique itself, so the client can never book on someone else's behalf.
@@ -186,6 +237,20 @@ export class OrdersService {
       masterId = technique.ownerId;
     }
 
+    // A brigade order is a contract with the brigade owner - the owner is
+    // who accepts it, and staffs it afterwards via assignOrderMembers.
+    // `masterId` is derived from the brigade, never trusted from the client.
+    if (brigadeId) {
+      const brigade = await this.prisma.brigade.findUnique({
+        where: { id: brigadeId },
+      });
+      if (!brigade) {
+        return { error: 'Brigade not found' };
+      }
+      masterId = brigade.ownerId;
+      brigadeName = brigade.name;
+    }
+
     if (clientId === masterId) {
       return { error: 'Client and master cannot be the same user' };
     }
@@ -193,7 +258,9 @@ export class OrdersService {
     // The caller must be one of the two parties on the order - otherwise
     // anyone could invent orders between two unrelated other users.
     if (initiatorId !== clientId && initiatorId !== masterId) {
-      return { error: 'You must be either the client or the master on this order' };
+      return {
+        error: 'You must be either the client or the master on this order',
+      };
     }
 
     // Ensure the users exist
@@ -232,6 +299,7 @@ export class OrdersService {
         masterId,
         initiatorId,
         techniqueId: techniqueId || null,
+        brigadeId: brigadeId || null,
         description,
         imageUrl,
         startDate,
@@ -264,10 +332,15 @@ export class OrdersService {
           },
         },
         technique: { select: { id: true, name: true } },
+        brigade: { select: { id: true, name: true } },
       },
     });
 
     const receiverId = initiatorId === clientId ? masterId : clientId;
+    const requesterName =
+      initiatorId === clientId
+        ? client.name || 'a client'
+        : master.name || 'a master';
 
     this.notificationsService.emit(
       { cmd: 'create-notification' },
@@ -275,19 +348,22 @@ export class OrdersService {
         userId: receiverId,
         type: NotificationType.ORDER_INVITE,
         title: 'New Order Request',
-        message: `You have received a new order request from ${initiatorId === clientId ? client.name || 'a client' : master.name || 'a master'}.`,
+        message: brigadeName
+          ? `You have received a new order request for your brigade "${brigadeName}" from ${requesterName}.`
+          : `You have received a new order request from ${requesterName}.`,
         metadata: {
           orderId: order.id,
-          i18n: {
-            titleKey: 'notif_order_request_title',
-            messageKey: 'notif_order_request_message',
-            params: {
-              name:
-                initiatorId === clientId
-                  ? client.name || 'a client'
-                  : master.name || 'a master',
-            },
-          },
+          i18n: brigadeName
+            ? {
+                titleKey: 'notif_order_request_title',
+                messageKey: 'notif_brigade_order_request_message',
+                params: { name: requesterName, brigade: brigadeName },
+              }
+            : {
+                titleKey: 'notif_order_request_title',
+                messageKey: 'notif_order_request_message',
+                params: { name: requesterName },
+              },
         },
       },
     );
@@ -296,9 +372,20 @@ export class OrdersService {
   }
 
   async getMyOrders(userId: string) {
+    // A brigade member assigned to an order should see it too, even though
+    // they're neither the client nor the contracting masterId (the owner).
+    const assignedOrderIds = await this.prisma.orderAssignment.findMany({
+      where: { memberId: userId },
+      select: { orderId: true },
+    });
+
     return this.prisma.order.findMany({
       where: {
-        OR: [{ clientId: userId }, { masterId: userId }],
+        OR: [
+          { clientId: userId },
+          { masterId: userId },
+          { id: { in: assignedOrderIds.map((a) => a.orderId) } },
+        ],
       },
       include: {
         client: {
@@ -320,6 +407,14 @@ export class OrdersService {
           },
         },
         technique: { select: { id: true, name: true } },
+        brigade: { select: { id: true, name: true } },
+        assignments: {
+          include: {
+            member: {
+              select: { id: true, name: true, avatarUrl: true },
+            },
+          },
+        },
         reviews: { select: { id: true, authorId: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -349,6 +444,14 @@ export class OrdersService {
           },
         },
         technique: { select: { id: true, name: true } },
+        brigade: { select: { id: true, name: true } },
+        assignments: {
+          include: {
+            member: {
+              select: { id: true, name: true, avatarUrl: true },
+            },
+          },
+        },
         reviews: { select: { id: true, authorId: true } },
       },
     });
@@ -357,7 +460,14 @@ export class OrdersService {
       return { error: 'Order not found' };
     }
 
-    if (order.clientId !== userId && order.masterId !== userId) {
+    const isAssignedMember = order.assignments.some(
+      (a) => a.memberId === userId,
+    );
+    if (
+      order.clientId !== userId &&
+      order.masterId !== userId &&
+      !isAssignedMember
+    ) {
       return { error: 'Unauthorized to view this order' };
     }
 
@@ -683,8 +793,132 @@ export class OrdersService {
     return updated;
   }
 
+  /**
+   * The brigade owner staffs an accepted brigade order with specific
+   * members. Replaces the order's whole assignment roster with `memberIds`
+   * (an empty array clears it) - each id must be the owner themself or an
+   * ACCEPTED member of the order's brigade, and free for the order's dates.
+   * Newly-added members are notified and, if a chat thread already exists
+   * for this order, pulled into it.
+   */
+  async assignOrderMembers(
+    ownerId: string,
+    orderId: string,
+    memberIds: string[],
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) return { error: 'Order not found' };
+    if (order.masterId !== ownerId) return { error: 'Unauthorized' };
+    if (!order.brigadeId) return { error: 'This order is not a brigade order' };
+    if (order.status !== 'ACCEPTED') {
+      return { error: 'Only accepted orders can be staffed' };
+    }
+
+    // The owner can always assign themself; only non-owner ids need a
+    // brigade-membership check.
+    const uniqueMemberIds = [...new Set(memberIds)];
+    const nonOwnerIds = uniqueMemberIds.filter((id) => id !== ownerId);
+    if (nonOwnerIds.length > 0) {
+      const acceptedMembers = await this.prisma.brigadeMember.findMany({
+        where: {
+          brigadeId: order.brigadeId,
+          userId: { in: nonOwnerIds },
+          status: 'ACCEPTED',
+        },
+        select: { userId: true },
+      });
+      const acceptedIds = new Set(acceptedMembers.map((m) => m.userId));
+      const invalidIds = nonOwnerIds.filter((id) => !acceptedIds.has(id));
+      if (invalidIds.length > 0) {
+        return { error: 'Some members are not in this brigade' };
+      }
+    }
+
+    for (const memberId of uniqueMemberIds) {
+      const availabilityError = await this.checkMemberAssignmentAvailability(
+        memberId,
+        order.startDate,
+        order.endDate,
+        order.id,
+      );
+      if (availabilityError) return { error: availabilityError };
+
+      const busyPeriodError = await this.checkCustomBusyPeriod(
+        memberId,
+        order.startDate,
+        order.endDate,
+      );
+      if (busyPeriodError) return { error: busyPeriodError };
+    }
+
+    const existing = await this.prisma.orderAssignment.findMany({
+      where: { orderId },
+      select: { memberId: true },
+    });
+    const existingIds = new Set(existing.map((a) => a.memberId));
+    const newlyAssignedIds = uniqueMemberIds.filter(
+      (id) => !existingIds.has(id),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.orderAssignment.deleteMany({ where: { orderId } });
+      if (uniqueMemberIds.length > 0) {
+        await tx.orderAssignment.createMany({
+          data: uniqueMemberIds.map((memberId) => ({ orderId, memberId })),
+        });
+      }
+    });
+
+    if (newlyAssignedIds.length > 0) {
+      const conversation = await this.prisma.conversation.findFirst({
+        where: { orderId },
+        include: { participants: true },
+      });
+      if (conversation) {
+        const existingParticipantIds = new Set(
+          conversation.participants.map((p) => p.userId),
+        );
+        const toAdd = newlyAssignedIds.filter(
+          (id) => !existingParticipantIds.has(id),
+        );
+        if (toAdd.length > 0) {
+          await this.prisma.conversationParticipant.createMany({
+            data: toAdd.map((userId) => ({
+              conversationId: conversation.id,
+              userId,
+            })),
+          });
+        }
+      }
+
+      for (const memberId of newlyAssignedIds) {
+        this.notificationsService.emit(
+          { cmd: 'create-notification' },
+          {
+            userId: memberId,
+            type: NotificationType.ORDER_ASSIGNED,
+            title: 'Assigned to a Job',
+            message: `You've been assigned to an order for "${order.description}".`,
+            metadata: {
+              orderId: order.id,
+              i18n: {
+                titleKey: 'notif_order_assigned_title',
+                messageKey: 'notif_order_assigned_message',
+                params: { description: order.description },
+              },
+            },
+          },
+        );
+      }
+    }
+
+    return this.getOrderById(ownerId, orderId);
+  }
+
   async getBusyDatesForMaster(masterId: string) {
-    const [orders, busyPeriods] = await Promise.all([
+    const [orders, busyPeriods, assignments] = await Promise.all([
       this.prisma.order.findMany({
         where: {
           masterId,
@@ -702,8 +936,17 @@ export class OrdersService {
           endDate: true,
         },
       }),
+      this.prisma.orderAssignment.findMany({
+        where: {
+          memberId: masterId,
+          order: { status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] } },
+        },
+        select: {
+          order: { select: { startDate: true, endDate: true } },
+        },
+      }),
     ]);
 
-    return [...orders, ...busyPeriods];
+    return [...orders, ...busyPeriods, ...assignments.map((a) => a.order)];
   }
 }

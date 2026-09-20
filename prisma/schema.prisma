@@ -38,6 +38,7 @@ model User {
 
   clientOrders Order[] @relation("ClientOrders")
   masterOrders Order[] @relation("MasterOrders")
+  orderAssignments OrderAssignment[] @relation("OrderAssignments")
   busyPeriods  BusyPeriod[] @relation("MasterBusyPeriods")
   techniques   Technique[] @relation("TechniqueOwner")
   writtenReviews Review[] @relation("WrittenReviews")
@@ -137,6 +138,7 @@ model Brigade {
   owner       User     @relation("BrigadeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   
   members     BrigadeMember[]
+  orders      Order[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -163,6 +165,7 @@ enum NotificationType {
   ORDER_ACCEPTED
   ORDER_REJECTED
   ORDER_OVERDUE
+  ORDER_ASSIGNED
   ANNOUNCEMENT
   MESSAGE
 }
@@ -296,6 +299,14 @@ model Order {
   master          User        @relation("MasterOrders", fields: [masterId], references: [id], onDelete: Cascade)
   initiatorId     String
 
+  // Set when this order was placed against a Brigade rather than an
+  // individual master. `masterId` still holds the brigade owner's id - the
+  // owner is who actually accepted the contract - and once accepted, the
+  // owner staffs it by creating OrderAssignment rows for specific members.
+  brigadeId       String?
+  brigade         Brigade?    @relation(fields: [brigadeId], references: [id], onDelete: SetNull)
+  assignments     OrderAssignment[]
+
   // Set when this order is booking a specific Technique rather than a
   // general master contract. `masterId` still holds the technique owner's
   // id, so all existing master-order logic (accept/reject/notifications/
@@ -328,6 +339,24 @@ model Order {
   reviews         Review[]
 
   @@index([techniqueId])
+  @@index([brigadeId])
+}
+
+// A brigade owner staffing a brigade order: which member(s) will actually do
+// the work. `Order.masterId` stays the owner throughout (the owner is who
+// accepted the contract), so this is purely a roster/scheduling layer -
+// assigned members' calendars (getBusyDatesForMaster) block out the order's
+// dates the same way an owner's own order would.
+model OrderAssignment {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     User     @relation("OrderAssignments", fields: [memberId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([orderId, memberId])
+  @@index([memberId])
 }
 
 // A period a master/company manually marks themselves unavailable for
