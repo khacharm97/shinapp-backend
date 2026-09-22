@@ -65,9 +65,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /** Push a new message to every participant currently connected. */
-  emitMessage(userIds: string[], message: any, conversationId: string) {
+  emitMessage(userIds: string[], message: any, conversationId: string, conversationStatus?: string) {
     for (const userId of userIds) {
-      this.server.to(userId).emit('chat:message', { conversationId, message });
+      this.server.to(userId).emit('chat:message', { conversationId, message, conversationStatus });
     }
   }
 

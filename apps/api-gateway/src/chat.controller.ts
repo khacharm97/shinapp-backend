@@ -28,9 +28,12 @@ export class ChatController {
   ) {}
 
   @Get('conversations')
-  async listConversations(@Request() req) {
+  async listConversations(
+    @Request() req,
+    @Query('type') type?: 'USER_MASTER' | 'MASTER_COMPANY' | 'SUPPORT',
+  ) {
     return firstValueFrom(
-      this.chatService.send({ cmd: 'chat.list-conversations' }, { userId: req.user.id }),
+      this.chatService.send({ cmd: 'chat.list-conversations' }, { userId: req.user.id, type }),
     );
   }
 
@@ -109,10 +112,10 @@ export class ChatController {
     );
     if (result?.error) throw new BadRequestException(result.error);
 
-    const { message, conversationId, participantIds } = result;
+    const { message, conversationId, conversationStatus, participantIds } = result;
 
     // Real-time fan-out to connected participants.
-    this.chatGateway.emitMessage(participantIds, message, conversationId);
+    this.chatGateway.emitMessage(participantIds, message, conversationId, conversationStatus);
 
     // Offline participants get a bell/push notification instead.
     const recipients: string[] = participantIds.filter(
@@ -134,6 +137,22 @@ export class ChatController {
       );
     }
 
+    return result;
+  }
+
+  @Post('conversations/:id/status')
+  async setConversationStatus(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { status: 'OPEN' | 'RESOLVED' },
+  ) {
+    const result = await firstValueFrom(
+      this.chatService.send(
+        { cmd: 'chat.set-conversation-status' },
+        { userId: req.user.id, conversationId: id, status: body.status },
+      ),
+    );
+    if (result?.error) throw new BadRequestException(result.error);
     return result;
   }
 }

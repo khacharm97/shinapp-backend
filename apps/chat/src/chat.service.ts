@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConversationType, Prisma } from '@prisma/client';
+import { ConversationStatus, ConversationType, Prisma, Role } from '@prisma/client';
 import { PrismaService } from './prisma/prisma.service';
 
 const PARTICIPANT_USER_SELECT = {
@@ -42,9 +42,14 @@ export class ChatService {
     });
   }
 
-  async listConversations(userId: string) {
+  private async isAdmin(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { roles: true } });
+    return !!user?.roles.includes(Role.ADMIN);
+  }
+
+  async listConversations(userId: string, type?: ConversationType) {
     const memberships = await this.prisma.conversationParticipant.findMany({
-      where: { userId },
+      where: { userId, ...(type ? { conversation: { type } } : {}) },
       include: {
         conversation: {
           include: {
@@ -64,6 +69,7 @@ export class ChatService {
         return {
           id: m.conversation.id,
           type: m.conversation.type,
+          status: m.conversation.status,
           announcementId: m.conversation.announcementId,
           orderId: m.conversation.orderId,
           lastMessageAt: m.conversation.lastMessageAt,
@@ -88,6 +94,7 @@ export class ChatService {
     return {
       id: conversation.id,
       type: conversation.type,
+      status: conversation.status,
       announcementId: conversation.announcementId,
       orderId: conversation.orderId,
       lastMessageAt: conversation.lastMessageAt,
@@ -122,8 +129,39 @@ export class ChatService {
     };
   }
 
+  /**
+   * A support conversation has no single recipient — it's a shared inbox
+   * between the customer and whichever admins existed when it was opened.
+   */
+  private async findOrCreateSupportConversation(senderId: string) {
+    const existing = await this.prisma.conversation.findFirst({
+      where: { type: ConversationType.SUPPORT, participants: { some: { userId: senderId } } },
+      include: { participants: true },
+    });
+    if (existing) return existing;
+
+    const admins = await this.prisma.user.findMany({
+      where: { roles: { has: Role.ADMIN }, id: { not: senderId } },
+      select: { id: true },
+    });
+
+    return this.prisma.conversation.create({
+      data: {
+        type: ConversationType.SUPPORT,
+        participants: {
+          create: [senderId, ...admins.map((a) => a.id)].map((userId) => ({ userId })),
+        },
+      },
+      include: { participants: true },
+    });
+  }
+
   private async findOrCreateConversation(input: SendMessageInput) {
     const type = input.type ?? ConversationType.USER_MASTER;
+    if (type === ConversationType.SUPPORT && !input.recipientId) {
+      return this.findOrCreateSupportConversation(input.senderId);
+    }
+
     const existing = await this.prisma.conversation.findFirst({
       where: {
         type,
@@ -164,9 +202,25 @@ export class ChatService {
       });
       if (!conversation) return { error: 'Conversation not found' };
     } else {
-      if (!input.recipientId) return { error: 'recipientId is required for a new conversation' };
-      if (input.recipientId === input.senderId) return { error: 'Cannot message yourself' };
+      const isSupport = (input.type ?? ConversationType.USER_MASTER) === ConversationType.SUPPORT;
+      if (!isSupport) {
+        if (!input.recipientId) return { error: 'recipientId is required for a new conversation' };
+        if (input.recipientId === input.senderId) return { error: 'Cannot message yourself' };
+      } else if (input.recipientId === input.senderId) {
+        return { error: 'Cannot message yourself' };
+      }
       conversation = await this.findOrCreateConversation(input);
+    }
+
+    // A customer writing back into a Resolved support thread reopens it —
+    // an admin replying (e.g. a closing follow-up) does not.
+    let status = conversation.status as ConversationStatus;
+    if (
+      conversation.type === ConversationType.SUPPORT &&
+      status === ConversationStatus.RESOLVED &&
+      !(await this.isAdmin(input.senderId))
+    ) {
+      status = ConversationStatus.OPEN;
     }
 
     const message = await this.prisma.message.create({
@@ -181,7 +235,7 @@ export class ChatService {
 
     await this.prisma.conversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: message.createdAt },
+      data: { lastMessageAt: message.createdAt, status },
     });
     // The sender has implicitly read up to their own message.
     await this.prisma.conversationParticipant.updateMany({
@@ -193,8 +247,22 @@ export class ChatService {
       message,
       conversationId: conversation.id,
       conversationType: conversation.type,
+      conversationStatus: status,
       participantIds: conversation.participants.map((p) => p.userId),
     };
+  }
+
+  async setConversationStatus(userId: string, conversationId: string, status: ConversationStatus) {
+    if (!(await this.isAdmin(userId))) {
+      return { error: 'Only support agents can change conversation status' };
+    }
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: conversationId, type: ConversationType.SUPPORT, participants: { some: { userId } } },
+    });
+    if (!conversation) return { error: 'Conversation not found' };
+
+    await this.prisma.conversation.update({ where: { id: conversationId }, data: { status } });
+    return { success: true, status };
   }
 
   async markRead(userId: string, conversationId: string) {

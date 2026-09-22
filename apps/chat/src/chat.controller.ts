@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { ConversationType } from '@prisma/client';
+import { ConversationStatus, ConversationType } from '@prisma/client';
 import { ChatService } from './chat.service';
 
 @Controller()
@@ -8,8 +8,8 @@ export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   @MessagePattern({ cmd: 'chat.list-conversations' })
-  listConversations(@Payload() data: { userId: string }) {
-    return this.chatService.listConversations(data.userId);
+  listConversations(@Payload() data: { userId: string; type?: ConversationType }) {
+    return this.chatService.listConversations(data.userId, data.type);
   }
 
   @MessagePattern({ cmd: 'chat.get-conversation' })
@@ -55,5 +55,12 @@ export class ChatController {
   @MessagePattern({ cmd: 'chat.unread-count' })
   getUnreadCount(@Payload() data: { userId: string }) {
     return this.chatService.getUnreadCount(data.userId);
+  }
+
+  @MessagePattern({ cmd: 'chat.set-conversation-status' })
+  setConversationStatus(
+    @Payload() data: { userId: string; conversationId: string; status: ConversationStatus },
+  ) {
+    return this.chatService.setConversationStatus(data.userId, data.conversationId, data.status);
   }
 }

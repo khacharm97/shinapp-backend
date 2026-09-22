@@ -176,9 +176,18 @@ enum ConversationType {
   SUPPORT
 }
 
+// Only meaningful for SUPPORT conversations — an admin can mark one Resolved
+// to clear it from the active queue; it flips back to Open automatically if
+// the customer sends another message.
+enum ConversationStatus {
+  OPEN
+  RESOLVED
+}
+
 model Conversation {
-  id             String           @id @default(uuid())
+  id             String             @id @default(uuid())
   type           ConversationType
+  status         ConversationStatus @default(OPEN)
   // Optional context this conversation is anchored to.
   announcementId String?
   orderId        String?
