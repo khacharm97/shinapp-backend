@@ -132,10 +132,16 @@ export class ChatService {
   /**
    * A support conversation has no single recipient — it's a shared inbox
    * between the customer and whichever admins existed when it was opened.
+   * A Resolved conversation is left alone (admins keep it for history) and
+   * the next message starts a fresh one instead of reopening it.
    */
   private async findOrCreateSupportConversation(senderId: string) {
     const existing = await this.prisma.conversation.findFirst({
-      where: { type: ConversationType.SUPPORT, participants: { some: { userId: senderId } } },
+      where: {
+        type: ConversationType.SUPPORT,
+        status: ConversationStatus.OPEN,
+        participants: { some: { userId: senderId } },
+      },
       include: { participants: true },
     });
     if (existing) return existing;
@@ -212,17 +218,6 @@ export class ChatService {
       conversation = await this.findOrCreateConversation(input);
     }
 
-    // A customer writing back into a Resolved support thread reopens it —
-    // an admin replying (e.g. a closing follow-up) does not.
-    let status = conversation.status as ConversationStatus;
-    if (
-      conversation.type === ConversationType.SUPPORT &&
-      status === ConversationStatus.RESOLVED &&
-      !(await this.isAdmin(input.senderId))
-    ) {
-      status = ConversationStatus.OPEN;
-    }
-
     const message = await this.prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -235,7 +230,7 @@ export class ChatService {
 
     await this.prisma.conversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: message.createdAt, status },
+      data: { lastMessageAt: message.createdAt },
     });
     // The sender has implicitly read up to their own message.
     await this.prisma.conversationParticipant.updateMany({
@@ -247,7 +242,7 @@ export class ChatService {
       message,
       conversationId: conversation.id,
       conversationType: conversation.type,
-      conversationStatus: status,
+      conversationStatus: conversation.status,
       participantIds: conversation.participants.map((p) => p.userId),
     };
   }
