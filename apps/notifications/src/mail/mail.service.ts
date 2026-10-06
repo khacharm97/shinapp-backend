@@ -39,7 +39,7 @@ export class MailService {
   }
 
   async sendUnreadMessagesEmail(input: UnreadMessagesEmailInput) {
-    const conversationUrl = `${this.appUrl}/chat/${input.conversationId}`;
+    const conversationUrl = `${this.appUrl}/messages/${input.conversationId}`;
     const countLabel =
       input.unreadCount > 1
         ? `${input.unreadCount} unread messages`
