@@ -9,15 +9,15 @@ export class ReviewsService {
     const { orderId, authorId, targetId, rating, comment } = data;
 
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) return { error: 'Order not found' };
-    if (order.status !== 'COMPLETED') return { error: 'Order must be completed to leave a review' };
+    if (!order) return { error: 'review_order_not_found' };
+    if (order.status !== 'COMPLETED') return { error: 'review_order_not_completed' };
 
     const existing = await this.prisma.review.findFirst({
       where: { orderId, authorId }
     });
 
     if (existing) {
-      return { error: 'You have already left a review for this order' };
+      return { error: 'review_already_exists' };
     }
 
     const review = await this.prisma.review.create({
