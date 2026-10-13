@@ -20,6 +20,7 @@ import { PublicAnnouncementsController } from './public-announcements.controller
 import { OrdersController } from './orders.controller';
 import { ReviewsController } from './reviews.controller';
 import { ChatController } from './chat.controller';
+import { ChatGuestController } from './chat-guest.controller';
 import { TechniquesController } from './techniques.controller';
 
 @Module({
@@ -85,6 +86,7 @@ import { TechniquesController } from './techniques.controller';
     OrdersController,
     ReviewsController,
     ChatController,
+    ChatGuestController,
     TechniquesController,
   ],
   providers: [

@@ -23,6 +23,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (result && result.isBlocked) {
       throw new ForbiddenException('auth_error_user_blocked');
     }
-    return { id: payload.sub, roles: payload.roles };
+    return { id: payload.sub, roles: payload.roles, isGuest: !!payload.guest };
   }
 }

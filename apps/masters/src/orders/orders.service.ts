@@ -224,6 +224,7 @@ export class OrdersService {
       where: {
         id: { not: data.requesterId },
         isBlocked: false,
+        isGuest: false,
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
           { email: { equals: search, mode: 'insensitive' } },

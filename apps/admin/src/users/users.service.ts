@@ -9,6 +9,8 @@ export class UsersService {
 
   async getUsers() {
     return this.prisma.user.findMany({
+      // Guest accounts only exist for support chat - they aren't real users.
+      where: { isGuest: false },
       select: {
         id: true,
         name: true,

@@ -7,6 +7,11 @@ import { ChatService } from './chat.service';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
+  @MessagePattern({ cmd: 'chat.create-guest' })
+  createGuest() {
+    return this.chatService.createGuest();
+  }
+
   @MessagePattern({ cmd: 'chat.list-conversations' })
   listConversations(@Payload() data: { userId: string; type?: ConversationType }) {
     return this.chatService.listConversations(data.userId, data.type);

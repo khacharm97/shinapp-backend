@@ -47,6 +47,19 @@ export class ChatService {
     return !!user?.roles.includes(Role.ADMIN);
   }
 
+  /**
+   * A not-logged-in visitor writing to support gets a throwaway guest account
+   * so the rest of chat (participants, messages, sockets, the admin inbox)
+   * works exactly as it does for a real user. No roles, no credentials.
+   */
+  async createGuest() {
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    return this.prisma.user.create({
+      data: { name: `Guest ${suffix}`, isGuest: true, roles: [] },
+      select: { id: true, name: true },
+    });
+  }
+
   async listConversations(userId: string, type?: ConversationType) {
     const memberships = await this.prisma.conversationParticipant.findMany({
       where: { userId, ...(type ? { conversation: { type } } : {}) },

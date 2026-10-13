@@ -9,24 +9,36 @@ import {
   Inject,
   UseGuards,
   BadRequestException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { ChatGateway } from './chat.gateway';
+import { AllowGuest } from './common/decorators/allow-guest.decorator';
+import { RateLimiter } from './common/utils/rate-limiter';
+
+const GUEST_MESSAGES_PER_MINUTE = 15;
 
 @ApiTags('Chat')
 @ApiBearerAuth()
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
 export class ChatController {
+  private readonly guestMessageLimiter = new RateLimiter(
+    GUEST_MESSAGES_PER_MINUTE,
+    60 * 1000,
+  );
+
   constructor(
     @Inject('CHAT_SERVICE') private readonly chatService: ClientProxy,
     @Inject('NOTIFICATIONS_SERVICE') private readonly notificationsService: ClientProxy,
     private readonly chatGateway: ChatGateway,
   ) {}
 
+  @AllowGuest()
   @Get('conversations')
   async listConversations(
     @Request() req,
@@ -37,6 +49,7 @@ export class ChatController {
     );
   }
 
+  @AllowGuest()
   @Get('unread-count')
   async unreadCount(@Request() req) {
     return firstValueFrom(
@@ -56,6 +69,7 @@ export class ChatController {
     return result;
   }
 
+  @AllowGuest()
   @Get('conversations/:id/messages')
   async getMessages(
     @Request() req,
@@ -78,6 +92,7 @@ export class ChatController {
     return result;
   }
 
+  @AllowGuest()
   @Post('conversations/:id/read')
   async markRead(@Request() req, @Param('id') id: string) {
     const result = await firstValueFrom(
@@ -90,6 +105,7 @@ export class ChatController {
     return result;
   }
 
+  @AllowGuest()
   @Post('messages')
   async sendMessage(
     @Request() req,
@@ -104,10 +120,27 @@ export class ChatController {
       attachments?: string[];
     },
   ) {
+    // A guest can only ever talk to support: drop anything that would start
+    // a conversation with a specific user or attach files.
+    let payload = body;
+    if (req.user.isGuest) {
+      if (!this.guestMessageLimiter.take(req.user.id)) {
+        throw new HttpException(
+          'Too many requests',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      payload = {
+        conversationId: body.conversationId,
+        type: 'SUPPORT',
+        body: body.body,
+      };
+    }
+
     const result = await firstValueFrom(
       this.chatService.send(
         { cmd: 'chat.send-message' },
-        { senderId: req.user.id, ...body },
+        { senderId: req.user.id, ...payload },
       ),
     );
     if (result?.error) throw new BadRequestException(result.error);

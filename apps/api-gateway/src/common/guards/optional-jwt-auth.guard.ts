@@ -8,6 +8,7 @@ import { AuthGuard } from '@nestjs/passport';
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
   handleRequest(_err: any, user: any) {
-    return user || null;
+    // A guest (support chat) token counts as not logged in here.
+    return user && !user.isGuest ? user : null;
   }
 }

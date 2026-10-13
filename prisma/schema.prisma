@@ -26,6 +26,9 @@ model User {
   avatarUrl  String?
   verifiedAt DateTime?
   isBlocked  Boolean  @default(false)
+  // A throwaway account created for a not-logged-in visitor who writes to
+  // support chat. It has no credentials and its token only works for chat.
+  isGuest    Boolean  @default(false)
   // Opt-out for the "you have unread chat messages" email reminder.
   emailOnUnreadMessages Boolean @default(true)
 
