@@ -77,16 +77,19 @@ export class AdminAnnouncementsController {
       newImageUrls = await Promise.all(uploadPromises);
     }
 
+    // existingImages is a form-only field, not an Announcement column
+    const { existingImages: rawExistingImages, ...rest } = body;
+
     let existingImages: string[] = [];
-    if (body.existingImages) {
-      existingImages = Array.isArray(body.existingImages) 
-        ? body.existingImages 
-        : [body.existingImages];
+    if (rawExistingImages) {
+      existingImages = Array.isArray(rawExistingImages)
+        ? rawExistingImages
+        : [rawExistingImages];
     }
-    
-    const urgent = body.urgent === 'true' || body.urgent === true;
-    const payload = { 
-      ...body, 
+
+    const urgent = rest.urgent === 'true' || rest.urgent === true;
+    const payload = {
+      ...rest,
       urgent,
       imageUrls: [...existingImages, ...newImageUrls] 
     };
