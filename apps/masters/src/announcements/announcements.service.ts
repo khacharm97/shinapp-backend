@@ -210,10 +210,21 @@ export class AnnouncementsService {
       throw new Error('Unauthorized or not found');
     }
 
-    const updateData = { ...data };
-    if (updateData.startDate)
-      updateData.startDate = new Date(updateData.startDate);
-    if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+    // Only copy the fields a company may edit; anything else in the request
+    // (companyId, viewsCount, ...) must never reach the update.
+    const updateData: any = {};
+    for (const field of [
+      'sphere',
+      'title',
+      'description',
+      'urgent',
+      'status',
+      'imageUrls',
+    ]) {
+      if (data[field] !== undefined) updateData[field] = data[field];
+    }
+    if (data.startDate) updateData.startDate = new Date(data.startDate);
+    if (data.endDate) updateData.endDate = new Date(data.endDate);
 
     let removedImages: string[] = [];
     if (data.imageUrls) {

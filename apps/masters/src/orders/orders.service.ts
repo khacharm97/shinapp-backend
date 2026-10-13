@@ -73,6 +73,48 @@ export class OrdersService {
   }
 
   /**
+   * Availability for a technique booking. The technique itself can only be
+   * out on one job at a time, and its owner's own availability still applies
+   * - but every error is worded about the technique rather than "this
+   * master", since the client is booking equipment, not a person.
+   */
+  private async checkTechniqueAvailability(
+    techniqueId: string,
+    ownerId: string,
+    startDate: Date,
+    endDate: Date,
+    ignoreOrderId?: string,
+  ) {
+    const techniqueOrder = await this.prisma.order.findFirst({
+      where: {
+        techniqueId,
+        status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
+        ...(ignoreOrderId ? { id: { not: ignoreOrderId } } : {}),
+      },
+    });
+    if (techniqueOrder) return 'order_technique_busy';
+
+    const ownerBusy = await this.checkMasterAvailability(
+      ownerId,
+      startDate,
+      endDate,
+      ignoreOrderId,
+    );
+    if (ownerBusy) return 'order_technique_owner_busy';
+
+    const ownerUnavailable = await this.checkCustomBusyPeriod(
+      ownerId,
+      startDate,
+      endDate,
+    );
+    if (ownerUnavailable) return 'order_technique_owner_unavailable';
+
+    return null;
+  }
+
+  /**
    * Same idea as checkMasterAvailability, but for a brigade member being
    * assigned to work an order - checks both the member's own orders and any
    * OTHER order they're already assigned to (excluding this one, since we're
@@ -221,6 +263,7 @@ export class OrdersService {
     } = data;
     let { masterId } = data;
     let brigadeName: string | undefined;
+    let techniqueName: string | undefined;
 
     // A technique booking derives its master (the technique's owner) from the
     // technique itself, so the client can never book on someone else's behalf.
@@ -228,13 +271,16 @@ export class OrdersService {
       const technique = await this.prisma.technique.findUnique({
         where: { id: techniqueId },
       });
+      // Stable codes, not human sentences - the frontend maps these to
+      // translated messages the same way it does for order_master_busy.
       if (!technique) {
-        return { error: 'Technique not found' };
+        return { error: 'order_technique_not_found' };
       }
       if (technique.ownerId === clientId) {
-        return { error: 'You cannot order your own technique' };
+        return { error: 'order_technique_own' };
       }
       masterId = technique.ownerId;
+      techniqueName = technique.name;
     }
 
     // A brigade order is a contract with the brigade owner - the owner is
@@ -275,22 +321,34 @@ export class OrdersService {
       return { error: 'Client or Master not found' };
     }
 
-    const availabilityError = await this.checkMasterAvailability(
-      masterId,
-      new Date(startDate),
-      new Date(endDate),
-    );
-    if (availabilityError) {
-      return { error: availabilityError };
-    }
+    if (techniqueId) {
+      const techniqueError = await this.checkTechniqueAvailability(
+        techniqueId,
+        masterId,
+        new Date(startDate),
+        new Date(endDate),
+      );
+      if (techniqueError) {
+        return { error: techniqueError };
+      }
+    } else {
+      const availabilityError = await this.checkMasterAvailability(
+        masterId,
+        new Date(startDate),
+        new Date(endDate),
+      );
+      if (availabilityError) {
+        return { error: availabilityError };
+      }
 
-    const busyPeriodError = await this.checkCustomBusyPeriod(
-      masterId,
-      new Date(startDate),
-      new Date(endDate),
-    );
-    if (busyPeriodError) {
-      return { error: busyPeriodError };
+      const busyPeriodError = await this.checkCustomBusyPeriod(
+        masterId,
+        new Date(startDate),
+        new Date(endDate),
+      );
+      if (busyPeriodError) {
+        return { error: busyPeriodError };
+      }
     }
 
     const order = await this.prisma.order.create({
@@ -348,12 +406,20 @@ export class OrdersService {
         userId: receiverId,
         type: NotificationType.ORDER_INVITE,
         title: 'New Order Request',
-        message: brigadeName
-          ? `You have received a new order request for your brigade "${brigadeName}" from ${requesterName}.`
-          : `You have received a new order request from ${requesterName}.`,
+        message: techniqueName
+          ? `You have received a new order request for your technique "${techniqueName}" from ${requesterName}.`
+          : brigadeName
+            ? `You have received a new order request for your brigade "${brigadeName}" from ${requesterName}.`
+            : `You have received a new order request from ${requesterName}.`,
         metadata: {
           orderId: order.id,
-          i18n: brigadeName
+          i18n: techniqueName
+            ? {
+                titleKey: 'notif_order_request_title',
+                messageKey: 'notif_technique_order_request_message',
+                params: { name: requesterName, technique: techniqueName },
+              }
+            : brigadeName
             ? {
                 titleKey: 'notif_order_request_title',
                 messageKey: 'notif_brigade_order_request_message',
@@ -585,23 +651,36 @@ export class OrdersService {
       };
     }
 
-    const availabilityError = await this.checkMasterAvailability(
-      order.masterId,
-      order.startDate,
-      order.endDate,
-      order.id,
-    );
-    if (availabilityError) {
-      return { error: availabilityError };
-    }
+    if (order.techniqueId) {
+      const techniqueError = await this.checkTechniqueAvailability(
+        order.techniqueId,
+        order.masterId,
+        order.startDate,
+        order.endDate,
+        order.id,
+      );
+      if (techniqueError) {
+        return { error: techniqueError };
+      }
+    } else {
+      const availabilityError = await this.checkMasterAvailability(
+        order.masterId,
+        order.startDate,
+        order.endDate,
+        order.id,
+      );
+      if (availabilityError) {
+        return { error: availabilityError };
+      }
 
-    const busyPeriodError = await this.checkCustomBusyPeriod(
-      order.masterId,
-      order.startDate,
-      order.endDate,
-    );
-    if (busyPeriodError) {
-      return { error: busyPeriodError };
+      const busyPeriodError = await this.checkCustomBusyPeriod(
+        order.masterId,
+        order.startDate,
+        order.endDate,
+      );
+      if (busyPeriodError) {
+        return { error: busyPeriodError };
+      }
     }
 
     const updated = await this.prisma.order.update({

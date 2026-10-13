@@ -97,17 +97,20 @@ export class ClientAnnouncementsController {
     }
 
     // Parse existing images array (FormData usually sends multiple existingImages as an array or a single string)
+    // existingImages is a form-only field, not an Announcement column
+    const { existingImages: rawExistingImages, ...rest } = body;
+
     let existingImages: string[] = [];
-    if (body.existingImages) {
-      existingImages = Array.isArray(body.existingImages) 
-        ? body.existingImages 
-        : [body.existingImages];
+    if (rawExistingImages) {
+      existingImages = Array.isArray(rawExistingImages)
+        ? rawExistingImages
+        : [rawExistingImages];
     }
-    
+
     // Convert string fields if sent via FormData
-    const urgent = body.urgent === 'true' || body.urgent === true;
-    const payload = { 
-      ...body, 
+    const urgent = rest.urgent === 'true' || rest.urgent === true;
+    const payload = {
+      ...rest,
       urgent,
       imageUrls: [...existingImages, ...newImageUrls] 
     };
