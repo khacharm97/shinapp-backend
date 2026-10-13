@@ -45,4 +45,9 @@ export class MastersController {
   getMasterById(@Payload() data: { id: string }) {
     return this.mastersService.getMasterById(data.id);
   }
+
+  @MessagePattern({ cmd: 'get-public-user' })
+  getPublicUserById(@Payload() data: { id: string }) {
+    return this.mastersService.getPublicUserById(data.id);
+  }
 }

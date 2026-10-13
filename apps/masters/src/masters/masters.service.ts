@@ -217,15 +217,54 @@ export class MastersService {
   }
 
   async getMasterById(id: string) {
-    const master = await this.prisma.user.findUnique({
+    return this.getPublicUserById(id, { requireMaster: true });
+  }
+
+  /**
+   * Public profile of any user - master, company or plain client. Only the
+   * fields listed here leave the server: contact details (email, phone) and
+   * account internals are deliberately never selected.
+   */
+  async getPublicUserById(id: string, opts?: { requireMaster?: boolean }) {
+    const user = await this.prisma.user.findFirst({
       where: {
         id,
-        roles: {
-          has: 'MASTER',
-        },
+        isBlocked: false,
+        isGuest: false,
+        NOT: { roles: { has: 'ADMIN' } },
+        ...(opts?.requireMaster ? { roles: { has: 'MASTER' } } : {}),
       },
-      include: {
-        userInfo: true,
+      select: {
+        id: true,
+        name: true,
+        avatarUrl: true,
+        roles: true,
+        verifiedAt: true,
+        createdAt: true,
+        userInfo: {
+          select: {
+            regionId: true,
+            cityId: true,
+            skills: true,
+            largeScale: true,
+            urgentOrders: true,
+            onlinePay: true,
+            buyMaterial: true,
+            nightShift: true,
+            multipleJobs: true,
+            topRated: true,
+            availableNow: true,
+            pricingFormat: true,
+            priceValue: true,
+            about: true,
+            website: true,
+            socialFacebook: true,
+            socialInstagram: true,
+            socialTiktok: true,
+            workingPlaces: true,
+            workersCount: true,
+          },
+        },
         portfolios: {
           orderBy: { order: 'asc' },
         },
@@ -234,11 +273,30 @@ export class MastersService {
           include: { brigade: true },
         },
         ownedBrigades: true,
+        techniques: {
+          orderBy: { createdAt: 'desc' },
+        },
+        announcements: {
+          where: { status: 'PUBLISHED' },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            sphere: true,
+            urgent: true,
+            startDate: true,
+            endDate: true,
+            imageUrls: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
-    if (!master) {
-      throw new NotFoundException('Master not found');
+    if (!user) {
+      throw new NotFoundException(
+        opts?.requireMaster ? 'Master not found' : 'User not found',
+      );
     }
 
     // Derive public stats from completed orders where this user was the master.
@@ -254,10 +312,9 @@ export class MastersService {
     const busyMasterIds = await this.getMastersWithCurrentJob([id]);
     const availability = this.resolveAvailability(
       busyMasterIds.has(id),
-      master.userInfo?.multipleJobs,
+      user.userInfo?.multipleJobs,
     );
 
-    const { password, ...sanitizedMaster } = master;
-    return { ...sanitizedMaster, stats, availability };
+    return { ...user, stats, availability };
   }
 }

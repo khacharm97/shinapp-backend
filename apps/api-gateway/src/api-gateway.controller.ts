@@ -172,6 +172,14 @@ export class ApiGatewayController {
     );
   }
 
+  @Get('users/:id')
+  @ApiOperation({ summary: 'Get the public profile of any user by ID' })
+  async getPublicUserById(@Param('id') id: string) {
+    return firstValueFrom(
+      this.mastersService.send({ cmd: 'get-public-user' }, { id }),
+    );
+  }
+
   @Get('brigades/:id')
   @ApiOperation({ summary: 'Get a brigade by ID' })
   async getBrigadeById(@Param('id') id: string) {
