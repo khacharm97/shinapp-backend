@@ -337,11 +337,11 @@ export class ApiGatewayController {
       },
     },
   })
-  async createBrigade(@Request() req, @Body() body: { name: string; invites: string[] }) {
+  async createBrigade(@Request() req, @Body() body: { name: string; about?: string; invites: string[] }) {
     const result = await firstValueFrom(
       this.mastersService.send(
         { cmd: 'create-brigade' },
-        { ownerId: req.user.id, name: body.name, invites: body.invites || [] },
+        { ownerId: req.user.id, name: body.name, about: body.about, invites: body.invites || [] },
       ),
     );
     if (result && result.error) {
@@ -414,14 +414,15 @@ export class ApiGatewayController {
       },
     },
   })
-  async updateBrigade(@Request() req, @Param('id') id: string, @Body() body: { name: string; invites: string[]; removeMemberIds: string[] }) {
+  async updateBrigade(@Request() req, @Param('id') id: string, @Body() body: { name: string; about?: string; invites: string[]; removeMemberIds: string[] }) {
     const result = await firstValueFrom(
       this.mastersService.send(
         { cmd: 'update-brigade' },
-        { 
-          ownerId: req.user.id, 
-          brigadeId: id, 
-          name: body.name, 
+        {
+          ownerId: req.user.id,
+          brigadeId: id,
+          name: body.name,
+          about: body.about,
           invites: body.invites || [],
           removeMemberIds: body.removeMemberIds || [] 
         }
