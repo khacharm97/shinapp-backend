@@ -15,4 +15,9 @@ export class ReviewsController {
   getMasterReviews(@Payload() data: { masterId: string }) {
     return this.reviewsService.getReviewsForMaster(data.masterId);
   }
+
+  @MessagePattern({ cmd: 'get-brigade-reviews' })
+  getBrigadeReviews(@Payload() data: { brigadeId: string }) {
+    return this.reviewsService.getReviewsForBrigade(data.brigadeId);
+  }
 }
