@@ -5,6 +5,7 @@ const MAX_REVIEW_IMAGES = 3;
 
 const reviewInclude = {
   author: { select: { id: true, name: true, avatarUrl: true } },
+  target: { select: { id: true, name: true, avatarUrl: true } },
 } as const;
 
 @Injectable()
@@ -55,7 +56,7 @@ export class ReviewsService {
       orderBy: { createdAt: 'desc' }
     });
 
-    return this.withAverage(reviews);
+    return this.withAverage(await this.withTargetImages(reviews));
   }
 
   /**
@@ -78,17 +79,42 @@ export class ReviewsService {
       where: { targetId: { in: memberIds } },
       include: {
         ...reviewInclude,
-        target: { select: { id: true, name: true, avatarUrl: true } },
         order: { select: { masterId: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
 
     return this.withAverage(
-      reviews
-        .filter((r) => r.order.masterId === r.targetId)
-        .map(({ order: _order, ...review }) => review),
+      await this.withTargetImages(
+        reviews
+          .filter((r) => r.order.masterId === r.targetId)
+          .map(({ order: _order, ...review }) => review),
+      ),
     );
+  }
+
+  /**
+   * Adds `targetImages`: the photos the reviewed person attached to their own
+   * review of the same order, so e.g. a master's work photos show under the
+   * client's review even when the client added none. Nothing is copied - both
+   * reviews keep their own images.
+   */
+  private async withTargetImages<T extends { orderId: string; targetId: string }>(reviews: T[]) {
+    if (reviews.length === 0) return [];
+
+    const counterparts = await this.prisma.review.findMany({
+      where: {
+        OR: reviews.map((r) => ({ orderId: r.orderId, authorId: r.targetId })),
+        NOT: { images: { isEmpty: true } },
+      },
+      select: { orderId: true, authorId: true, images: true },
+    });
+    const imagesByKey = new Map(counterparts.map((c) => [`${c.orderId}:${c.authorId}`, c.images]));
+
+    return reviews.map((r) => ({
+      ...r,
+      targetImages: imagesByKey.get(`${r.orderId}:${r.targetId}`) ?? [],
+    }));
   }
 
   private withAverage<T extends { rating: number }>(reviews: T[]) {
