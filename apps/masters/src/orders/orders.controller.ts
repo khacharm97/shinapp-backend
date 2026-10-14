@@ -1,5 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
+import { OrderStatus } from '@prisma/client';
 import { OrdersService } from './orders.service';
 
 @Controller()
@@ -19,8 +20,18 @@ export class OrdersController {
   }
 
   @MessagePattern({ cmd: 'get-my-orders' })
-  getMyOrders(@Payload() data: { userId: string }) {
-    return this.ordersService.getMyOrders(data.userId);
+  getMyOrders(
+    @Payload()
+    data: {
+      userId: string;
+      page?: number;
+      limit?: number;
+      type?: 'ORDER' | 'BRIGADE' | 'TECHNIQUE';
+      status?: OrderStatus;
+      search?: string;
+    },
+  ) {
+    return this.ordersService.getMyOrders(data);
   }
 
   @MessagePattern({ cmd: 'get-order-by-id' })

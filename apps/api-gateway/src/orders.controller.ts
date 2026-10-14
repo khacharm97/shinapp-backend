@@ -20,7 +20,7 @@ import { firstValueFrom } from 'rxjs';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { Roles } from './common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { OrderStatus, Role } from '@prisma/client';
 import { ApiOperation, ApiTags, ApiConsumes } from '@nestjs/swagger';
 import { R2StorageService } from './r2-storage.service';
 
@@ -158,12 +158,31 @@ export class OrdersController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all orders for the current user' })
-  async getMyOrders(@Request() req) {
+  @ApiOperation({
+    summary:
+      "Get the current user's orders, paginated and filterable by type, status and search",
+  })
+  async getMyOrders(
+    @Request() req,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    const orderTypes = ['ORDER', 'BRIGADE', 'TECHNIQUE'];
+    const statuses = Object.values(OrderStatus) as string[];
     return firstValueFrom(
       this.mastersService.send(
         { cmd: 'get-my-orders' },
-        { userId: req.user.id },
+        {
+          userId: req.user.id,
+          page: page ? parseInt(page, 10) || 1 : 1,
+          limit: limit ? parseInt(limit, 10) || undefined : undefined,
+          type: type && orderTypes.includes(type) ? type : undefined,
+          status: status && statuses.includes(status) ? status : undefined,
+          search: search || undefined,
+        },
       ),
     );
   }

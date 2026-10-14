@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -421,16 +421,16 @@ export class OrdersService {
                 params: { name: requesterName, technique: techniqueName },
               }
             : brigadeName
-            ? {
-                titleKey: 'notif_order_request_title',
-                messageKey: 'notif_brigade_order_request_message',
-                params: { name: requesterName, brigade: brigadeName },
-              }
-            : {
-                titleKey: 'notif_order_request_title',
-                messageKey: 'notif_order_request_message',
-                params: { name: requesterName },
-              },
+              ? {
+                  titleKey: 'notif_order_request_title',
+                  messageKey: 'notif_brigade_order_request_message',
+                  params: { name: requesterName, brigade: brigadeName },
+                }
+              : {
+                  titleKey: 'notif_order_request_title',
+                  messageKey: 'notif_order_request_message',
+                  params: { name: requesterName },
+                },
         },
       },
     );
@@ -438,54 +438,97 @@ export class OrdersService {
     return order;
   }
 
-  async getMyOrders(userId: string) {
-    // A brigade member assigned to an order should see it too, even though
-    // they're neither the client nor the contracting masterId (the owner).
-    const assignedOrderIds = await this.prisma.orderAssignment.findMany({
-      where: { memberId: userId },
-      select: { orderId: true },
-    });
+  async getMyOrders(data: {
+    userId: string;
+    page?: number;
+    limit?: number;
+    type?: 'ORDER' | 'BRIGADE' | 'TECHNIQUE';
+    status?: OrderStatus;
+    search?: string;
+  }) {
+    const { userId } = data;
+    const page = Math.max(1, data.page || 1);
+    const limit = Math.min(50, Math.max(1, data.limit || 12));
+    const skip = (page - 1) * limit;
+    const search = data.search?.trim();
 
-    return this.prisma.order.findMany({
-      where: {
-        OR: [
-          { clientId: userId },
-          { masterId: userId },
-          { id: { in: assignedOrderIds.map((a) => a.orderId) } },
-        ],
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            avatarUrl: true,
-          },
+    const where: Prisma.OrderWhereInput = {
+      AND: [
+        {
+          // A brigade member assigned to an order should see it too, even though
+          // they're neither the client nor the contracting masterId (the owner).
+          OR: [
+            { clientId: userId },
+            { masterId: userId },
+            { assignments: { some: { memberId: userId } } },
+          ],
         },
-        master: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            avatarUrl: true,
-          },
-        },
-        technique: { select: { id: true, name: true } },
-        brigade: { select: { id: true, name: true } },
-        assignments: {
-          include: {
-            member: {
-              select: { id: true, name: true, avatarUrl: true },
+        // An order with a brigade counts as a brigade order even if it also has a technique.
+        data.type === 'BRIGADE' ? { brigadeId: { not: null } } : {},
+        data.type === 'TECHNIQUE'
+          ? { techniqueId: { not: null }, brigadeId: null }
+          : {},
+        data.type === 'ORDER' ? { techniqueId: null, brigadeId: null } : {},
+        data.status ? { status: data.status } : {},
+        search
+          ? {
+              OR: [
+                { description: { contains: search, mode: 'insensitive' } },
+                { client: { name: { contains: search, mode: 'insensitive' } } },
+                { master: { name: { contains: search, mode: 'insensitive' } } },
+              ],
+            }
+          : {},
+      ],
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
             },
           },
+          master: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+            },
+          },
+          technique: { select: { id: true, name: true } },
+          brigade: { select: { id: true, name: true } },
+          assignments: {
+            include: {
+              member: {
+                select: { id: true, name: true, avatarUrl: true },
+              },
+            },
+          },
+          reviews: { select: { id: true, authorId: true } },
         },
-        reviews: { select: { id: true, authorId: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   async getOrderById(userId: string, orderId: string) {
