@@ -20,4 +20,9 @@ export class ReviewsController {
   getBrigadeReviews(@Payload() data: { brigadeId: string }) {
     return this.reviewsService.getReviewsForBrigade(data.brigadeId);
   }
+
+  @MessagePattern({ cmd: 'get-technique-reviews' })
+  getTechniqueReviews(@Payload() data: { techniqueId: string }) {
+    return this.reviewsService.getReviewsForTechnique(data.techniqueId);
+  }
 }

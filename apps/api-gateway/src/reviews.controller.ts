@@ -99,6 +99,14 @@ export class ReviewsController {
     );
   }
 
+  @Get('technique/:techniqueId')
+  @ApiOperation({ summary: 'Get reviews clients left on orders for a technique' })
+  async getTechniqueReviews(@Param('techniqueId') techniqueId: string) {
+    return firstValueFrom(
+      this.mastersService.send({ cmd: 'get-technique-reviews' }, { techniqueId }),
+    );
+  }
+
   @Get('master/:masterId/busy-dates')
   @ApiOperation({ summary: 'Get busy dates for a master' })
   async getMasterBusyDates(@Param('masterId') masterId: string) {

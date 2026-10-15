@@ -94,6 +94,26 @@ export class ReviewsService {
   }
 
   /**
+   * Reviews clients left on orders that booked this technique - the owner's
+   * reviews of those clients are left out.
+   */
+  async getReviewsForTechnique(techniqueId: string) {
+    const technique = await this.prisma.technique.findUnique({
+      where: { id: techniqueId },
+      select: { ownerId: true },
+    });
+    if (!technique) return { reviews: [], averageRating: 0, count: 0 };
+
+    const reviews = await this.prisma.review.findMany({
+      where: { targetId: technique.ownerId, order: { techniqueId } },
+      include: reviewInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return this.withAverage(await this.withTargetImages(reviews));
+  }
+
+  /**
    * Adds `targetImages`: the photos the reviewed person attached to their own
    * review of the same order, so e.g. a master's work photos show under the
    * client's review even when the client added none. Nothing is copied - both
