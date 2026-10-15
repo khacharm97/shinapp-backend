@@ -35,7 +35,7 @@ export class MailService {
   }
 
   private get appUrl() {
-    return (process.env.APP_URL || 'https://shinapp.com').replace(/\/$/, '');
+    return (process.env.APP_URL || 'https://shinapp.am').replace(/\/$/, '');
   }
 
   async sendUnreadMessagesEmail(input: UnreadMessagesEmailInput) {
