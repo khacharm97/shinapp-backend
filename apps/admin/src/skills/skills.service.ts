@@ -18,6 +18,7 @@ export class SkillsService {
     nameRu: string;
     nameFa: string;
     icon?: string;
+    color?: string | null;
     approved: boolean;
   }) {
     return this.prisma.skill.create({
