@@ -17,36 +17,70 @@ interface MasterRating {
 
 export type MasterAvailability = 'AVAILABLE' | 'HALF_BUSY' | 'BUSY';
 
+// "Top rated" is earned from reviews. The website shows the badge with the
+// same rule (shinapp/src/utils isTopRated) - keep the two in step.
+const TOP_RATED_MIN_RATING = 4.5;
+const TOP_RATED_MIN_REVIEWS = 1;
+
 @Injectable()
 export class MastersService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Returns the set of master ids that have a job in progress right now
-   * (an ACCEPTED / COMPLETION_REQUESTED order whose date range covers today).
+   * Who is busy today, using the same sources as the master's calendar
+   * (OrdersService.getBusyDatesForMaster):
+   * - withJob: an accepted order today, their own or a brigade order they're assigned to
+   * - blocked: a day they marked busy themselves (vacation, outside work...)
+   * Pass masterIds to check only those masters; leave it out to check everyone.
    */
-  private async getMastersWithCurrentJob(
-    masterIds: string[],
-  ): Promise<Set<string>> {
-    if (masterIds.length === 0) return new Set();
-    const now = new Date();
-    const ongoing = await this.prisma.order.findMany({
-      where: {
-        masterId: { in: masterIds },
-        status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] },
-        startDate: { lte: now },
-        endDate: { gte: now },
-      },
-      select: { masterId: true },
-    });
-    return new Set(ongoing.map((o) => o.masterId));
+  private async getBusyToday(
+    masterIds?: string[],
+  ): Promise<{ withJob: Set<string>; blocked: Set<string> }> {
+    if (masterIds && masterIds.length === 0)
+      return { withJob: new Set(), blocked: new Set() };
+
+    // Order and busy dates are stored as whole days, so compare by day: a job
+    // ending today still counts all day long.
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setUTCHours(23, 59, 59, 999);
+    const coversToday = { startDate: { lte: dayEnd }, endDate: { gte: dayStart } };
+    const activeOrder = { status: { in: ['ACCEPTED', 'COMPLETION_REQUESTED'] as any } };
+    const only = (field: string) => (masterIds ? { [field]: { in: masterIds } } : {});
+
+    const [ownOrders, assignments, busyPeriods] = await Promise.all([
+      this.prisma.order.findMany({
+        where: { ...only('masterId'), ...activeOrder, ...coversToday },
+        select: { masterId: true },
+      }),
+      this.prisma.orderAssignment.findMany({
+        where: { ...only('memberId'), order: { ...activeOrder, ...coversToday } },
+        select: { memberId: true },
+      }),
+      this.prisma.busyPeriod.findMany({
+        where: { ...only('masterId'), ...coversToday },
+        select: { masterId: true },
+      }),
+    ]);
+
+    return {
+      withJob: new Set([
+        ...ownOrders.map((o) => o.masterId),
+        ...assignments.map((a) => a.memberId),
+      ]),
+      blocked: new Set(busyPeriods.map((b) => b.masterId)),
+    };
   }
 
   private resolveAvailability(
-    hasCurrentJob: boolean,
+    id: string,
+    busy: { withJob: Set<string>; blocked: Set<string> },
     multipleJobs?: boolean | null,
   ): MasterAvailability {
-    if (!hasCurrentJob) return 'AVAILABLE';
+    // A day they marked busy themselves means fully busy.
+    if (busy.blocked.has(id)) return 'BUSY';
+    if (!busy.withJob.has(id)) return 'AVAILABLE';
     return multipleJobs ? 'HALF_BUSY' : 'BUSY';
   }
 
@@ -73,6 +107,21 @@ export class MastersService {
     );
   }
 
+  /** Ids of users whose reviews meet the "top rated" bar. */
+  private async getTopRatedIds(): Promise<string[]> {
+    const grouped = await this.prisma.review.groupBy({
+      by: ['targetId'],
+      _count: { rating: true },
+      having: {
+        rating: {
+          _avg: { gte: TOP_RATED_MIN_RATING },
+          _count: { gte: TOP_RATED_MIN_REVIEWS },
+        },
+      },
+    });
+    return grouped.map((g) => g.targetId);
+  }
+
   async getMasters(
     page: number = 1,
     limit: number = 10,
@@ -96,9 +145,19 @@ export class MastersService {
     if (filters?.cityId)
       AND.push({ userInfo: { is: { cityId: filters.cityId } } });
     if (filters?.topRated)
-      AND.push({ userInfo: { is: { topRated: filters.topRated } } });
-    if (filters?.availableNow)
-      AND.push({ userInfo: { is: { availableNow: filters.availableNow } } });
+      AND.push({ id: { in: await this.getTopRatedIds() } });
+    if (filters?.availableNow) {
+      // Can take work today: "Available now" or "Partially busy" on their card.
+      // Out: marked today busy themselves, or on a job and only take one at a time.
+      const busy = await this.getBusyToday();
+      AND.push({ id: { notIn: [...busy.blocked] } });
+      AND.push({
+        OR: [
+          { id: { notIn: [...busy.withJob] } },
+          { userInfo: { is: { multipleJobs: true } } },
+        ],
+      });
+    }
 
     if (filters?.search) {
       const searchStr = filters.search;
@@ -179,14 +238,13 @@ export class MastersService {
     }
 
     // Sanitize output + attach live availability status and review scores
-    const busyMasterIds = await this.getMastersWithCurrentJob(
-      items.map((i) => i.id),
-    );
+    const busy = await this.getBusyToday(items.map((i) => i.id));
     const ratingMap = await this.getRatingMap(items.map((i) => i.id));
     const sanitizedItems = items.map(({ password, ...rest }) => ({
       ...rest,
       availability: this.resolveAvailability(
-        busyMasterIds.has(rest.id),
+        rest.id,
+        busy,
         rest.userInfo?.multipleJobs,
       ),
       rating: ratingMap.get(rest.id)?.rating ?? 0,
@@ -309,9 +367,9 @@ export class MastersService {
       customers: new Set(completedOrders.map((o) => o.clientId)).size,
     };
 
-    const busyMasterIds = await this.getMastersWithCurrentJob([id]);
     const availability = this.resolveAvailability(
-      busyMasterIds.has(id),
+      id,
+      await this.getBusyToday([id]),
       user.userInfo?.multipleJobs,
     );
 
