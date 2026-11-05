@@ -35,6 +35,7 @@ export class TechniquesController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
     @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
@@ -42,7 +43,12 @@ export class TechniquesController {
     return firstValueFrom(
       this.mastersService.send(
         { cmd: 'get-techniques' },
-        { page: pageNum, limit: limitNum, search },
+        {
+          page: pageNum,
+          limit: limitNum,
+          search,
+          sortBy: sortBy === 'rating' ? 'rating' : undefined,
+        },
       ),
     );
   }

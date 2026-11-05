@@ -6,6 +6,7 @@ interface TechniqueListPayload {
   page?: number;
   limit?: number;
   search?: string;
+  sortBy?: 'rating';
 }
 
 @Controller()
@@ -16,6 +17,7 @@ export class TechniquesController {
   getTechniques(@Payload() data: TechniqueListPayload) {
     return this.techniquesService.getTechniques(data.page, data.limit, {
       search: data.search,
+      sortBy: data.sortBy,
     });
   }
 
