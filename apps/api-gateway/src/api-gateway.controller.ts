@@ -139,6 +139,12 @@ export class ApiGatewayController {
     @Query('topRated') topRated?: string,
     @Query('availableNow') availableNow?: string,
     @Query('sortBy') sortBy?: string,
+    @Query('skills') skills?: string,
+    @Query('minRating') minRating?: string,
+    @Query('maxRating') maxRating?: string,
+    @Query('priceUnit') priceUnit?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
@@ -155,6 +161,14 @@ export class ApiGatewayController {
           topRated: topRated === 'true',
           availableNow: availableNow === 'true',
           sortBy: sortBy === 'rating' ? 'rating' : undefined,
+          ...parseRangeFilters({
+            skills,
+            minRating,
+            maxRating,
+            priceUnit,
+            minPrice,
+            maxPrice,
+          }),
         },
       ),
     );
@@ -199,6 +213,12 @@ export class ApiGatewayController {
     @Query('topRated') topRated?: string,
     @Query('availableNow') availableNow?: string,
     @Query('sortBy') sortBy?: string,
+    @Query('skills') skills?: string,
+    @Query('minRating') minRating?: string,
+    @Query('maxRating') maxRating?: string,
+    @Query('priceUnit') priceUnit?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
   ) {
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
@@ -215,6 +235,14 @@ export class ApiGatewayController {
           topRated: topRated === 'true',
           availableNow: availableNow === 'true',
           sortBy: sortBy === 'rating' ? 'rating' : undefined,
+          ...parseRangeFilters({
+            skills,
+            minRating,
+            maxRating,
+            priceUnit,
+            minPrice,
+            maxPrice,
+          }),
         },
       ),
     );
@@ -534,4 +562,35 @@ export class ApiGatewayController {
     this.notificationsGateway.sendEventToUser(data.userId, data.event, data.payload);
     return { success: true };
   }
+}
+
+/** Parses the skills / rating / price query params shared by masters and search. */
+function parseRangeFilters(q: {
+  skills?: string;
+  minRating?: string;
+  maxRating?: string;
+  priceUnit?: string;
+  minPrice?: string;
+  maxPrice?: string;
+}) {
+  const num = (v?: string) => {
+    if (v === undefined || v.trim() === '') return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const skills = q.skills
+    ?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return {
+    skills: skills?.length ? skills : undefined,
+    minRating: num(q.minRating),
+    maxRating: num(q.maxRating),
+    priceUnit:
+      q.priceUnit === 'daily' || q.priceUnit === 'sqm'
+        ? (q.priceUnit as 'daily' | 'sqm')
+        : undefined,
+    minPrice: num(q.minPrice),
+    maxPrice: num(q.maxPrice),
+  };
 }

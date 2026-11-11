@@ -11,6 +11,12 @@ interface MasterListPayload {
   topRated?: boolean;
   availableNow?: boolean;
   sortBy?: 'rating';
+  skills?: string[];
+  minRating?: number;
+  maxRating?: number;
+  priceUnit?: 'daily' | 'sqm';
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 @Controller()
@@ -26,6 +32,12 @@ export class MastersController {
       topRated: data.topRated,
       availableNow: data.availableNow,
       sortBy: data.sortBy,
+      skills: data.skills,
+      minRating: data.minRating,
+      maxRating: data.maxRating,
+      priceUnit: data.priceUnit,
+      minPrice: data.minPrice,
+      maxPrice: data.maxPrice,
     });
   }
 
@@ -38,6 +50,12 @@ export class MastersController {
       topRated: data.topRated,
       availableNow: data.availableNow,
       sortBy: data.sortBy,
+      skills: data.skills,
+      minRating: data.minRating,
+      maxRating: data.maxRating,
+      priceUnit: data.priceUnit,
+      minPrice: data.minPrice,
+      maxPrice: data.maxPrice,
     });
   }
 

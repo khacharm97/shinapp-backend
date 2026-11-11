@@ -8,6 +8,14 @@ interface MasterListFilters {
   topRated?: boolean;
   availableNow?: boolean;
   sortBy?: 'rating';
+  /** Skill keys - a master matches if they have any of them. */
+  skills?: string[];
+  minRating?: number;
+  maxRating?: number;
+  /** Price filter only applies within one pricing unit (per day or per m2). */
+  priceUnit?: 'daily' | 'sqm';
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 interface MasterRating {
@@ -122,6 +130,63 @@ export class MastersService {
     return grouped.map((g) => g.targetId);
   }
 
+  /**
+   * Turns a rating range into a Prisma condition on user id. Masters with no
+   * reviews count as rating 0, so they only pass when the range starts at 0.
+   */
+  private async getRatingRangeCondition(
+    min?: number,
+    max?: number,
+  ): Promise<any | null> {
+    const lo = min ?? 0;
+    const hi = max ?? 5;
+    if (lo <= 0 && hi >= 5) return null;
+
+    const grouped = await this.prisma.review.groupBy({
+      by: ['targetId'],
+      _avg: { rating: true },
+    });
+    const inRange = (avg: number) => avg >= lo && avg <= hi;
+
+    if (lo <= 0) {
+      // Unrated masters are in range - exclude only the rated ones outside it.
+      const outside = grouped
+        .filter((g) => !inRange(g._avg.rating ?? 0))
+        .map((g) => g.targetId);
+      return { id: { notIn: outside } };
+    }
+    const inside = grouped
+      .filter((g) => inRange(g._avg.rating ?? 0))
+      .map((g) => g.targetId);
+    return { id: { in: inside } };
+  }
+
+  /**
+   * Ids of masters whose price in the given unit falls in [min, max].
+   * priceValue is stored as free text, so it's parsed here rather than in SQL.
+   */
+  private async getPriceRangeIds(
+    unit: 'daily' | 'sqm',
+    min?: number,
+    max?: number,
+  ): Promise<string[]> {
+    const rows = await this.prisma.userInfo.findMany({
+      where: { pricingFormat: unit, priceValue: { not: null } },
+      select: { userId: true, priceValue: true },
+    });
+    return rows
+      .filter((r) => {
+        const digits = (r.priceValue ?? '').replace(/[^\d.]/g, '');
+        if (!digits) return false;
+        const price = Number(digits);
+        if (!Number.isFinite(price)) return false;
+        if (min !== undefined && price < min) return false;
+        if (max !== undefined && price > max) return false;
+        return true;
+      })
+      .map((r) => r.userId);
+  }
+
   async getMasters(
     page: number = 1,
     limit: number = 10,
@@ -146,6 +211,27 @@ export class MastersService {
       AND.push({ userInfo: { is: { cityId: filters.cityId } } });
     if (filters?.topRated)
       AND.push({ id: { in: await this.getTopRatedIds() } });
+    if (filters?.skills?.length)
+      AND.push({ userInfo: { is: { skills: { hasSome: filters.skills } } } });
+    const ratingCondition = await this.getRatingRangeCondition(
+      filters?.minRating,
+      filters?.maxRating,
+    );
+    if (ratingCondition) AND.push(ratingCondition);
+    if (
+      filters?.priceUnit &&
+      (filters.minPrice !== undefined || filters.maxPrice !== undefined)
+    ) {
+      AND.push({
+        id: {
+          in: await this.getPriceRangeIds(
+            filters.priceUnit,
+            filters.minPrice,
+            filters.maxPrice,
+          ),
+        },
+      });
+    }
     if (filters?.availableNow) {
       // Can take work today: "Available now" or "Partially busy" on their card.
       // Out: marked today busy themselves, or on a job and only take one at a time.
