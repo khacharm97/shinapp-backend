@@ -271,6 +271,21 @@ export class OrdersController {
     return result;
   }
 
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a pending order you sent' })
+  async cancelOrder(@Request() req, @Param('id') id: string) {
+    const result = await firstValueFrom(
+      this.mastersService.send(
+        { cmd: 'cancel-order' },
+        { userId: req.user.id, orderId: id },
+      ),
+    );
+    if (result && result.error) {
+      throw new BadRequestException(result.error);
+    }
+    return result;
+  }
+
   @Post(':id/assign')
   @ApiOperation({
     summary: 'Staff an accepted brigade order with specific brigade member(s)',

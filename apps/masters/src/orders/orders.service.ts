@@ -612,6 +612,11 @@ export class OrdersService {
       return { error: 'Unauthorized to edit this order' };
     }
 
+    // A cancelled order is closed - a counter-offer must not reopen it.
+    if (existing.status === 'CANCELLED') {
+      return { error: 'order_cancelled' };
+    }
+
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -692,6 +697,15 @@ export class OrdersService {
       return {
         error:
           'You cannot accept an order you proposed. Wait for the other party.',
+      };
+    }
+
+    if (order.status !== 'PENDING') {
+      return {
+        error:
+          order.status === 'CANCELLED'
+            ? 'order_cancelled'
+            : 'order_not_pending',
       };
     }
 
@@ -780,6 +794,15 @@ export class OrdersService {
       };
     }
 
+    if (order.status !== 'PENDING') {
+      return {
+        error:
+          order.status === 'CANCELLED'
+            ? 'order_cancelled'
+            : 'order_not_pending',
+      };
+    }
+
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: { status: 'REJECTED' },
@@ -808,6 +831,72 @@ export class OrdersService {
             titleKey: 'notif_order_rejected_title',
             messageKey: 'notif_order_rejected_message',
             params: { name: rejecterName },
+          },
+        },
+      },
+    );
+
+    return updated;
+  }
+
+  /**
+   * Lets whoever sent the current offer withdraw it while it's still waiting
+   * for an answer - e.g. they sent the wrong order. Once the other party has
+   * accepted, it can no longer be cancelled this way.
+   */
+  async cancelOrder(userId: string, orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) return { error: 'Order not found' };
+    if (order.clientId !== userId && order.masterId !== userId)
+      return { error: 'Unauthorized' };
+    if (order.initiatorId !== userId)
+      return {
+        error:
+          'order_cancel_not_sender',
+      };
+    if (order.status !== 'PENDING')
+      return { error: 'order_cancel_not_pending' };
+
+    // Check and update in one statement so a cancel can't slip in after the
+    // other party has just accepted.
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, status: 'PENDING', initiatorId: userId },
+      data: { status: 'CANCELLED' },
+    });
+    if (count === 0) return { error: 'order_cancel_not_pending' };
+
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        client: { select: { id: true, name: true } },
+        master: { select: { id: true, name: true } },
+      },
+    });
+    if (!updated) return { error: 'Order not found' };
+
+    const receiverId =
+      userId === updated.clientId ? updated.masterId : updated.clientId;
+    const cancellerName =
+      userId === updated.clientId
+        ? updated.client.name || 'Client'
+        : updated.master.name || 'Master';
+
+    this.notificationsService.emit(
+      { cmd: 'create-notification' },
+      {
+        userId: receiverId,
+        type: NotificationType.SYSTEM,
+        title: 'Order Cancelled',
+        message: `${cancellerName} has cancelled the order.`,
+        metadata: {
+          orderId: updated.id,
+          i18n: {
+            titleKey: 'notif_order_cancelled_title',
+            messageKey: 'notif_order_cancelled_message',
+            params: { name: cancellerName },
           },
         },
       },

@@ -54,6 +54,11 @@ export class OrdersController {
     return this.ordersService.rejectOrder(data.userId, data.orderId);
   }
 
+  @MessagePattern({ cmd: 'cancel-order' })
+  cancelOrder(@Payload() data: { userId: string; orderId: string }) {
+    return this.ordersService.cancelOrder(data.userId, data.orderId);
+  }
+
   @MessagePattern({ cmd: 'request-order-completion' })
   requestOrderCompletion(@Payload() data: { userId: string; orderId: string }) {
     return this.ordersService.requestOrderCompletion(data.userId, data.orderId);
