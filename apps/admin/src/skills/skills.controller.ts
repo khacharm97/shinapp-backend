@@ -33,6 +33,15 @@ export class SkillsController {
     }
   }
 
+  @MessagePattern({ cmd: 'admin.is_skill_icon_used' })
+  async isSkillIconUsed(data: { icon: string }) {
+    try {
+      return { used: await this.skillsService.isIconUsed(data.icon) };
+    } catch (e) {
+      return { error: e.message || 'Failed to check skill icon' };
+    }
+  }
+
   @MessagePattern({ cmd: 'admin.delete_skill' })
   async deleteSkill(data: { id: string }) {
     try {
